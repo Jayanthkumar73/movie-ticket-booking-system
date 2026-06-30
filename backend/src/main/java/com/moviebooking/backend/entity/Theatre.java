@@ -1,9 +1,13 @@
 package com.moviebooking.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "theatres")
@@ -31,4 +35,8 @@ public class Theatre {
     private String managerContact;
 
     private String theatreImageUrl;
+
+    @OneToMany(mappedBy = "theatre", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<Screen> screens = new ArrayList<>();
 }

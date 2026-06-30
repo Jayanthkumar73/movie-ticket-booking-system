@@ -6,6 +6,11 @@ import LoginPage from './pages/LoginPage';
 import MovieListPage from './pages/MovieListPage';
 import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import ShowsPage from './pages/ShowsPage';
+import SeatSelectionPage from './pages/SeatSelectionPage';
+import BookingConfirmPage from './pages/BookingConfirmPage';
+import BookingSuccessPage from './pages/BookingSuccessPage';
+import BookingHistoryPage from './pages/BookingHistoryPage';
 
 function App() {
   return (
@@ -17,8 +22,21 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin" element={
-          <ProtectedRoute allowedRoles={['ROLE_ADMIN', 'ROLE_SUPER_ADMIN']}>
+          <ProtectedRoute allowedRoles={['ROLE_ADMIN', 'ROLE_SUPER_ADMIN', 'ROLE_THEATRE_ADMIN']}>
             <AdminDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/movies/:id/shows" element={<ShowsPage />} />
+        <Route path="/shows/:id/seats" element={<SeatSelectionPage />} />
+        <Route path="/booking/confirm" element={
+          <ProtectedRoute allowedRoles={['ROLE_CUSTOMER', 'ROLE_THEATRE_ADMIN', 'ROLE_SUPER_ADMIN']}>
+            <BookingConfirmPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/booking/success" element={<BookingSuccessPage />} />
+        <Route path="/bookings" element={
+          <ProtectedRoute allowedRoles={['ROLE_CUSTOMER', 'ROLE_THEATRE_ADMIN', 'ROLE_SUPER_ADMIN']}>
+            <BookingHistoryPage />
           </ProtectedRoute>
         } />
       </Routes>

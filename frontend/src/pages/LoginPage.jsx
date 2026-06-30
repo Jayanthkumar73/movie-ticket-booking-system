@@ -31,7 +31,7 @@ const LoginPage = () => {
     e.preventDefault();
     setError('');
     try {
-      const response = await axios.post('http://localhost:8080/api/auth/login', formData);
+      const response = await axios.post('/api/auth/login', formData);
       if (response.data.requiresOtp) {
         setRequiresOtp(true);
         setAdminEmail(response.data.email);
@@ -48,7 +48,7 @@ const LoginPage = () => {
     e.preventDefault();
     setError('');
     try {
-      const response = await axios.post('http://localhost:8080/api/auth/verify-otp', {
+      const response = await axios.post('/api/auth/verify-otp', {
         email: adminEmail,
         otp: otp
       });

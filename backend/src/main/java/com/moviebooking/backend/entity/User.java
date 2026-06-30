@@ -29,6 +29,10 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    // null = legacy user (treated as approved); FALSE = pending approval; TRUE = approved.
+    // Only THEATRE_ADMIN accounts are gated on this flag.
+    private Boolean approved;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "user_roles",

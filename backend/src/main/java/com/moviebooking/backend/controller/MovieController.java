@@ -30,7 +30,7 @@ public class MovieController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('THEATRE_ADMIN')")
+    @PreAuthorize("hasAnyRole('THEATRE_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Movie> addMovie(
             @RequestPart("movie") Movie movie,
             @RequestPart(value = "file", required = false) MultipartFile file) {
@@ -43,7 +43,7 @@ public class MovieController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('THEATRE_ADMIN')")
+    @PreAuthorize("hasAnyRole('THEATRE_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Movie> updateMovie(
             @PathVariable Long id,
             @RequestPart("movie") Movie movieDetails,
@@ -57,7 +57,7 @@ public class MovieController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('THEATRE_ADMIN')")
+    @PreAuthorize("hasAnyRole('THEATRE_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<HttpStatus> deleteMovie(@PathVariable Long id) {
         try {
             movieService.deleteMovie(id);

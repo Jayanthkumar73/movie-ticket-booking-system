@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -30,20 +31,22 @@ public class TheatreController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<Theatre> addTheatre(
+    @PreAuthorize("hasAnyRole('THEATRE_ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<?> addTheatre(
             @RequestPart("theatre") Theatre theatre,
             @RequestPart(value = "file", required = false) MultipartFile file) {
         try {
             Theatre savedTheatre = theatreService.addTheatre(theatre, file);
             return new ResponseEntity<>(savedTheatre, HttpStatus.CREATED);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Failed to add theatre: " + e.getMessage()));
         }
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('THEATRE_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<Theatre> updateTheatre(
             @PathVariable Long id,
             @RequestPart("theatre") Theatre theatreDetails,
@@ -57,7 +60,7 @@ public class TheatreController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('THEATRE_ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<HttpStatus> deleteTheatre(@PathVariable Long id) {
         try {
             theatreService.deleteTheatre(id);

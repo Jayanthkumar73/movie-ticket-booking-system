@@ -75,8 +75,11 @@ public class AuthController {
         
         if ("jayanthkumarsamatham@gmail.com".equals(email) && "jayanthkumarsamatham".equals(loginRequest.getPassword())) {
             roles = List.of("ROLE_SUPER_ADMIN");
-            authentication = new UsernamePasswordAuthenticationToken(email, null, 
+            authentication = new UsernamePasswordAuthenticationToken(email, null,
                 roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList()));
+            // Super admin bypasses OTP and logs in directly.
+            String jwt = jwtUtils.generateJwtToken(authentication);
+            return ResponseEntity.ok(new JwtResponse(jwt, email, roles, null));
         } else {
             try {
                 authentication = authenticationManager.authenticate(
@@ -89,6 +92,16 @@ public class AuthController {
             roles = userDetails.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
                     .collect(Collectors.toList());
+
+            // Block theatre admins whose account is still pending super-admin approval.
+            // (approved == null means a legacy account created before approvals existed.)
+            if (roles.contains("ROLE_THEATRE_ADMIN")) {
+                User account = userRepository.findByEmail(email).orElse(null);
+                if (account != null && Boolean.FALSE.equals(account.getApproved())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body("Your admin account is pending approval by a super admin.");
+                }
+            }
         }
 
         if (roles.contains("ROLE_THEATRE_ADMIN") || roles.contains("ROLE_SUPER_ADMIN")) {
@@ -106,9 +119,11 @@ public class AuthController {
         }
 
         String jwt = jwtUtils.generateJwtToken(authentication);
-        String username = authentication.getPrincipal() instanceof UserDetailsImpl ? 
+        String username = authentication.getPrincipal() instanceof UserDetailsImpl ?
             ((UserDetailsImpl)authentication.getPrincipal()).getUsername() : email;
-        return ResponseEntity.ok(new JwtResponse(jwt, username, roles));
+        Long userId = authentication.getPrincipal() instanceof UserDetailsImpl ?
+            ((UserDetailsImpl)authentication.getPrincipal()).getId() : null;
+        return ResponseEntity.ok(new JwtResponse(jwt, username, roles, userId));
     }
 
     @PostMapping("/verify-otp")
@@ -137,7 +152,9 @@ public class AuthController {
         
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtUtils.generateJwtToken(authentication);
-        return ResponseEntity.ok(new JwtResponse(jwt, email, roles));
+        Long userId = authentication.getPrincipal() instanceof UserDetailsImpl ?
+            ((UserDetailsImpl)authentication.getPrincipal()).getId() : null;
+        return ResponseEntity.ok(new JwtResponse(jwt, email, roles, userId));
     }
 
     @PostMapping("/register")
@@ -155,8 +172,9 @@ public class AuthController {
         user.setPassword(encoder.encode(signUpRequest.getPassword()));
 
         Set<Role> roles = new HashSet<>();
-        String roleName = "ADMIN".equalsIgnoreCase(signUpRequest.getRole()) ? "ROLE_THEATRE_ADMIN" : "ROLE_CUSTOMER";
-        
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(signUpRequest.getRole());
+        String roleName = isAdmin ? "ROLE_THEATRE_ADMIN" : "ROLE_CUSTOMER";
+
         Role userRole = roleRepository.findByRoleName(roleName)
                 .orElseGet(() -> {
                     Role newRole = new Role();
@@ -166,6 +184,8 @@ public class AuthController {
         roles.add(userRole);
 
         user.setRoles(roles);
+        // Theatre admins must be approved by a super admin before they can log in.
+        user.setApproved(isAdmin ? Boolean.FALSE : Boolean.TRUE);
         userRepository.save(user);
 
         return new ResponseEntity<>("User registered successfully!", HttpStatus.CREATED);
