@@ -4,6 +4,7 @@ import { Box, Container, Typography, Paper, Button, CircularProgress, Divider, A
 import { CheckCircle } from '@mui/icons-material';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
+import { NOIR, pageBg } from '../theme';
 
 const BookingConfirmPage = () => {
   const location = useLocation();
@@ -40,19 +41,12 @@ const BookingConfirmPage = () => {
 
   if (!show || !movie) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh"
-        sx={{ background: 'linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 50%, #16213e 100%)' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={pageBg}>
         <Box sx={{ textAlign: 'center' }}>
-          <Typography sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
+          <Typography sx={{ color: NOIR.textDim, mb: 2 }}>
             Invalid booking state. Please select seats first.
           </Typography>
-          <Button
-            variant="contained"
-            onClick={() => navigate('/movies')}
-            sx={{ background: 'linear-gradient(45deg, #ff6b6b, #ffd93d)', color: '#000', fontWeight: 700 }}
-          >
-            Go to Movies
-          </Button>
+          <Button variant="contained" onClick={() => navigate('/movies')}>Go to Movies</Button>
         </Box>
       </Box>
     );
@@ -69,23 +63,11 @@ const BookingConfirmPage = () => {
   ];
 
   return (
-    <Box sx={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 50%, #16213e 100%)',
-      display: 'flex',
-      alignItems: 'center',
-      py: 4
-    }}>
+    <Box sx={{ ...pageBg, display: 'flex', alignItems: 'center', py: 5 }}>
       <Container maxWidth="sm">
-        <Paper sx={{
-          p: 4,
-          bgcolor: 'rgba(255,255,255,0.06)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 4
-        }}>
-          <Typography variant="h4" fontWeight="900" sx={{ color: '#fff', mb: 4, textAlign: 'center' }}>
-            Confirm Booking
+        <Paper sx={{ p: 4, borderRadius: 5, bgcolor: NOIR.surface, border: `1px solid ${NOIR.border}` }}>
+          <Typography sx={{ fontFamily: '"Fraunces", serif', fontWeight: 600, color: NOIR.text, fontSize: '1.9rem', mb: 4, textAlign: 'center' }}>
+            Confirm your booking
           </Typography>
 
           {/* Movie info */}
@@ -94,75 +76,49 @@ const BookingConfirmPage = () => {
               component="img"
               src={movie.posterImageUrl || 'https://via.placeholder.com/80x120?text=Movie'}
               alt={movie.movieName}
-              sx={{ width: 80, height: 120, objectFit: 'cover', borderRadius: 2, flexShrink: 0 }}
+              sx={{ width: 80, height: 120, objectFit: 'cover', borderRadius: 2, border: `1px solid ${NOIR.border}`, flexShrink: 0 }}
             />
             <Box>
-              <Typography variant="h5" fontWeight="800" sx={{ color: '#fff', mb: 0.5 }}>
+              <Typography sx={{ fontFamily: '"Fraunces", serif', fontWeight: 600, color: NOIR.text, fontSize: '1.35rem', mb: 0.5 }}>
                 {movie.movieName}
               </Typography>
-              <Typography sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                {movie.language} • {movie.genre}
-              </Typography>
-              <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', mt: 0.5 }}>
-                ⏱ {movie.duration} mins
-              </Typography>
+              <Typography sx={{ color: NOIR.textDim }}>{movie.language} · {movie.genre}</Typography>
+              <Typography sx={{ color: NOIR.textFaint, fontSize: '0.85rem', mt: 0.5 }}>{movie.duration} mins</Typography>
             </Box>
           </Box>
 
-          <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)', my: 2 }} />
+          <Divider sx={{ borderColor: NOIR.border, my: 2 }} />
 
           {details.map(([label, value]) => (
             <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
-              <Typography sx={{ color: 'rgba(255,255,255,0.6)' }}>{label}</Typography>
-              <Typography sx={{ color: '#fff', fontWeight: 600, textAlign: 'right', maxWidth: '60%', wordBreak: 'break-word' }}>
-                {value}
-              </Typography>
+              <Typography sx={{ color: NOIR.textDim }}>{label}</Typography>
+              <Typography sx={{ color: NOIR.text, fontWeight: 600, textAlign: 'right', maxWidth: '60%', wordBreak: 'break-word' }}>{value}</Typography>
             </Box>
           ))}
 
-          <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)', my: 2 }} />
+          <Divider sx={{ borderColor: NOIR.border, my: 2 }} />
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4 }}>
-            <Typography color="#fff" variant="h6" fontWeight={700}>Total Amount</Typography>
-            <Typography color="#4ecdc4" variant="h5" fontWeight={900}>₹{totalAmount}</Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4, alignItems: 'baseline' }}>
+            <Typography sx={{ color: NOIR.text, fontWeight: 700, fontSize: '1.1rem' }}>Total Amount</Typography>
+            <Typography sx={{ color: NOIR.amber, fontWeight: 900, fontSize: '1.6rem' }}>₹{totalAmount}</Typography>
           </Box>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2, bgcolor: 'rgba(255,107,107,0.1)', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.3)' }}>
+            <Alert severity="error" sx={{ mb: 2, bgcolor: NOIR.dangerSoft, color: NOIR.danger, border: `1px solid rgba(229,72,77,0.3)` }}>
               {error}
             </Alert>
           )}
 
           <Button
-            fullWidth
-            variant="contained"
-            size="large"
-            onClick={handlePayAndBook}
-            disabled={loading}
+            fullWidth variant="contained" size="large"
+            onClick={handlePayAndBook} disabled={loading}
             startIcon={loading ? null : <CheckCircle />}
-            sx={{
-              background: 'linear-gradient(45deg, #56ab2f, #a8e063)',
-              color: '#000',
-              fontWeight: 900,
-              fontSize: '1.1rem',
-              py: 2,
-              borderRadius: 2,
-              boxShadow: '0 4px 20px rgba(86,171,47,0.4)',
-              '&:hover': { opacity: 0.9 },
-              '&:disabled': { background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.3)' }
-            }}
+            sx={{ fontSize: '1.05rem', py: 1.8, fontWeight: 800 }}
           >
-            {loading ? <CircularProgress size={24} color="inherit" /> : '🎬 Pay & Confirm Booking'}
+            {loading ? <CircularProgress size={24} color="inherit" /> : 'Pay & Confirm Booking'}
           </Button>
 
-          <Button
-            fullWidth
-            variant="text"
-            sx={{ color: 'rgba(255,255,255,0.5)', mt: 1 }}
-            onClick={() => navigate(-1)}
-          >
-            ← Change Seats
-          </Button>
+          <Button fullWidth variant="text" sx={{ mt: 1 }} onClick={() => navigate(-1)}>← Change Seats</Button>
         </Paper>
       </Container>
     </Box>

@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { NOIR } from '../theme';
 
 // ─────────────────────────────────────────────────────────
 // Helper: Axios instance with auth
@@ -32,22 +33,22 @@ const useAuthAxios = (token) => {
 // Styles
 // ─────────────────────────────────────────────────────────
 const darkCard = {
-  bgcolor: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.12)',
-  borderRadius: 3,
+  bgcolor: NOIR.surface,
+  border: `1px solid ${NOIR.border}`,
+  borderRadius: 4,
   p: 3,
 };
 
 const inputSx = {
   '& .MuiOutlinedInput-root': {
-    color: '#fff',
-    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
-    '&.Mui-focused fieldset': { borderColor: '#ff6b6b' },
+    color: NOIR.text,
+    '& fieldset': { borderColor: NOIR.border },
+    '&:hover fieldset': { borderColor: NOIR.borderStrong },
+    '&.Mui-focused fieldset': { borderColor: NOIR.amber },
   },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.6)' },
-  '& .MuiSelect-icon': { color: 'rgba(255,255,255,0.6)' },
-  '& .MuiInputBase-input': { color: '#fff' },
+  '& .MuiInputLabel-root': { color: NOIR.textDim },
+  '& .MuiSelect-icon': { color: NOIR.textDim },
+  '& .MuiInputBase-input': { color: NOIR.text },
 };
 
 // ─────────────────────────────────────────────────────────
@@ -59,12 +60,119 @@ const ManageMoviesTab = ({ token }) => {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
+  // OMDb search + import state
+  const [omdbQuery, setOmdbQuery] = useState('');
+  const [omdbResults, setOmdbResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [importingId, setImportingId] = useState('');
+  const [searched, setSearched] = useState(false);
+
+  // Edit dialog state
+  const [editingMovie, setEditingMovie] = useState(null); // full movie being edited (null = closed)
+  const [editForm, setEditForm] = useState({});
+  const [editFile, setEditFile] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
   const fetchMovies = useCallback(async () => {
     const res = await axios.get('/api/movies');
     setMovies(res.data);
   }, []);
 
   useEffect(() => { fetchMovies(); }, [fetchMovies]);
+
+  const handleOmdbSearch = async (e) => {
+    e.preventDefault();
+    if (omdbQuery.trim().length < 2) { setError('Type at least 2 characters to search.'); return; }
+    setSearching(true);
+    setError('');
+    setMsg('');
+    try {
+      const res = await api.get(`/movies/omdb/search?query=${encodeURIComponent(omdbQuery.trim())}`);
+      setOmdbResults(res.data);
+      setSearched(true);
+    } catch (err) {
+      setError(err.response?.data?.message || 'OMDb search failed.');
+      setOmdbResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleImport = async (imdbId) => {
+    setImportingId(imdbId);
+    setError('');
+    setMsg('');
+    try {
+      const res = await api.post(`/movies/omdb/import?imdbId=${imdbId}`);
+      setMsg(`Imported "${res.data.movieName}"! You can now schedule it in the Shows tab.`);
+      // Mark this result as imported so the button flips to "Added".
+      setOmdbResults(prev => prev.map(r => r.imdbId === imdbId ? { ...r, alreadyImported: true } : r));
+      fetchMovies();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Import failed.');
+    } finally {
+      setImportingId('');
+    }
+  };
+
+  const openEdit = (m) => {
+    setEditForm({
+      movieName: m.movieName || '',
+      language: m.language || '',
+      genre: m.genre || '',
+      duration: m.duration ?? '',
+      releaseDate: m.releaseDate || '',
+      description: m.description || '',
+      trailerUrl: m.trailerUrl || '', // preserved so update doesn't wipe it
+    });
+    setEditFile(null);
+    setEditingMovie(m);
+  };
+
+  const handleUpdate = async () => {
+    setSavingEdit(true);
+    setError('');
+    setMsg('');
+    try {
+      const movieData = {
+        movieName: editForm.movieName,
+        language: editForm.language,
+        genre: editForm.genre,
+        duration: Number(editForm.duration),
+        releaseDate: editForm.releaseDate,
+        description: editForm.description,
+        trailerUrl: editForm.trailerUrl,
+      };
+      const payload = new FormData();
+      payload.append('movie', new Blob([JSON.stringify(movieData)], { type: 'application/json' }));
+      if (editFile && editFile.size > 0) payload.append('file', editFile);
+      await api.put(`/movies/${editingMovie.id}`, payload);
+      setMsg('Movie updated!');
+      setEditingMovie(null);
+      fetchMovies();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update movie.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDelete = async (m) => {
+    if (!window.confirm(`Delete "${m.movieName}"? This cannot be undone.`)) return;
+    setError('');
+    setMsg('');
+    try {
+      await api.delete(`/movies/${m.id}`);
+      setMsg('Movie deleted!');
+      fetchMovies();
+    } catch (err) {
+      setError(
+        err.response?.status === 500
+          ? 'Cannot delete — this movie may still have shows scheduled. Remove its shows first.'
+          : (err.response?.data?.message || 'Failed to delete movie.')
+      );
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -94,11 +202,66 @@ const ManageMoviesTab = ({ token }) => {
   };
 
   return (
+    <>
     <Grid container spacing={4}>
+      {/* ── OMDb import panel ───────────────────────────── */}
+      <Grid item xs={12}>
+        <Box sx={darkCard}>
+          <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <FileDownload sx={{ color: '#4ecdc4' }} /> Search & Import from OMDb
+          </Typography>
+          <Typography sx={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.85rem', mb: 2 }}>
+            Type a movie name, then import it in one click — details & poster fill in automatically.
+          </Typography>
+          <Box component="form" onSubmit={handleOmdbSearch} sx={{ display: 'flex', gap: 2, mb: 2 }}>
+            <TextField fullWidth size="small" label="Movie name (e.g. Inception)" value={omdbQuery}
+              onChange={e => setOmdbQuery(e.target.value)} sx={inputSx} />
+            <Button variant="contained" type="submit" disabled={searching}
+              sx={{ minWidth: 120, background: 'linear-gradient(45deg, #4ecdc4, #2980b9)', fontWeight: 700 }}>
+              {searching ? <CircularProgress size={20} color="inherit" /> : 'Search'}
+            </Button>
+          </Box>
+
+          {searched && omdbResults.length === 0 && !searching && (
+            <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
+              No movies found. Try a different title.
+            </Typography>
+          )}
+
+          <Grid container spacing={2}>
+            {omdbResults.map(r => (
+              <Grid item xs={6} sm={4} md={3} lg={2} key={r.imdbId}>
+                <Box sx={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden', bgcolor: 'rgba(0,0,0,0.2)' }}>
+                  <Box sx={{ height: 220, bgcolor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {r.poster
+                      ? <img src={r.poster} alt={r.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <Movie sx={{ fontSize: 48, color: 'rgba(255,255,255,0.2)' }} />}
+                  </Box>
+                  <Box sx={{ p: 1.5 }}>
+                    <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.85rem', lineHeight: 1.2, mb: 0.3 }} noWrap title={r.title}>
+                      {r.title}
+                    </Typography>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', mb: 1 }}>{r.year}</Typography>
+                    <Button fullWidth size="small" variant={r.alreadyImported ? 'outlined' : 'contained'}
+                      disabled={r.alreadyImported || importingId === r.imdbId}
+                      onClick={() => handleImport(r.imdbId)}
+                      sx={r.alreadyImported
+                        ? { borderColor: '#56ab2f', color: '#56ab2f', fontSize: '0.72rem' }
+                        : { background: 'linear-gradient(135deg, #E5B769 0%, #C9922F 100%)', color: '#000', fontWeight: 700, fontSize: '0.72rem' }}>
+                      {importingId === r.imdbId ? 'Importing…' : r.alreadyImported ? '✓ Added' : 'Import'}
+                    </Button>
+                  </Box>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      </Grid>
+
       <Grid item xs={12} md={5}>
         <Box sx={darkCard}>
           <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Add sx={{ color: '#ff6b6b' }} /> Add New Movie
+            <Add sx={{ color: '#E5B769' }} /> Add New Movie <Typography component="span" sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', fontWeight: 400 }}>(manual)</Typography>
           </Typography>
           {msg && <Alert severity="success" sx={{ mb: 2 }}>{msg}</Alert>}
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -120,7 +283,7 @@ const ManageMoviesTab = ({ token }) => {
               <input type="file" name="file" hidden accept="image/*" />
             </Button>
             <Button variant="contained" type="submit"
-              sx={{ mt: 2, background: 'linear-gradient(45deg, #ff6b6b, #ffd93d)', color: '#000', fontWeight: 700 }}>
+              sx={{ mt: 2, background: 'linear-gradient(135deg, #E5B769 0%, #C9922F 100%)', color: '#000', fontWeight: 700 }}>
               Add Movie
             </Button>
           </Box>
@@ -139,23 +302,71 @@ const ManageMoviesTab = ({ token }) => {
                   <TableCell>LANGUAGE</TableCell>
                   <TableCell>GENRE</TableCell>
                   <TableCell>DURATION</TableCell>
+                  <TableCell>ACTIONS</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {movies.map(m => (
                   <TableRow key={m.id} sx={{ '& td': { color: '#fff', borderColor: 'rgba(255,255,255,0.08)' }, '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' } }}>
                     <TableCell fontWeight={700}>{m.movieName}</TableCell>
-                    <TableCell><Chip label={m.language} size="small" sx={{ bgcolor: 'rgba(255,107,107,0.2)', color: '#ff6b6b', fontSize: '0.7rem' }} /></TableCell>
+                    <TableCell><Chip label={m.language} size="small" sx={{ bgcolor: 'rgba(255,107,107,0.2)', color: '#E5B769', fontSize: '0.7rem' }} /></TableCell>
                     <TableCell>{m.genre}</TableCell>
                     <TableCell>{m.duration}m</TableCell>
+                    <TableCell>
+                      <IconButton size="small" onClick={() => openEdit(m)} sx={{ color: '#F5C518' }}><Edit fontSize="small" /></IconButton>
+                      <IconButton size="small" onClick={() => handleDelete(m)} sx={{ color: '#E5B769' }}><Delete fontSize="small" /></IconButton>
+                    </TableCell>
                   </TableRow>
                 ))}
+                {movies.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} sx={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', borderColor: 'rgba(255,255,255,0.08)', py: 3 }}>
+                      No movies yet. Import from OMDb or add one manually.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </TableContainer>
         </Box>
       </Grid>
     </Grid>
+
+    {/* ── Edit movie dialog ───────────────────────────── */}
+    <Dialog open={Boolean(editingMovie)} onClose={() => setEditingMovie(null)} fullWidth maxWidth="sm"
+      PaperProps={{ sx: { bgcolor: '#1a1a2e', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' } }}>
+      <DialogTitle sx={{ fontWeight: 700 }}>Edit Movie</DialogTitle>
+      <DialogContent>
+        <TextField fullWidth margin="dense" label="Movie Name" value={editForm.movieName || ''}
+          onChange={e => setEditForm(p => ({ ...p, movieName: e.target.value }))} sx={inputSx} />
+        <TextField fullWidth margin="dense" label="Language" value={editForm.language || ''}
+          onChange={e => setEditForm(p => ({ ...p, language: e.target.value }))} sx={inputSx} />
+        <TextField fullWidth margin="dense" label="Genre" value={editForm.genre || ''}
+          onChange={e => setEditForm(p => ({ ...p, genre: e.target.value }))} sx={inputSx} />
+        <TextField fullWidth margin="dense" label="Duration (mins)" type="number" value={editForm.duration ?? ''}
+          onChange={e => setEditForm(p => ({ ...p, duration: e.target.value }))} sx={inputSx} />
+        <TextField fullWidth margin="dense" label="Release Date" type="date" value={editForm.releaseDate || ''}
+          onChange={e => setEditForm(p => ({ ...p, releaseDate: e.target.value }))}
+          InputLabelProps={{ shrink: true }} sx={inputSx} />
+        <TextField fullWidth margin="dense" label="Description" multiline rows={3} value={editForm.description || ''}
+          onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} sx={inputSx} />
+        <TextField fullWidth margin="dense" label="Trailer URL" value={editForm.trailerUrl || ''}
+          onChange={e => setEditForm(p => ({ ...p, trailerUrl: e.target.value }))} sx={inputSx} />
+        <Button variant="outlined" component="label" sx={{ mt: 2, borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}>
+          Replace Poster
+          <input type="file" hidden accept="image/*" onChange={e => setEditFile(e.target.files?.[0] || null)} />
+        </Button>
+        {editFile && <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem', mt: 1 }}>{editFile.name}</Typography>}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={() => setEditingMovie(null)} sx={{ color: 'rgba(255,255,255,0.6)' }}>Cancel</Button>
+        <Button onClick={handleUpdate} variant="contained" disabled={savingEdit}
+          sx={{ background: 'linear-gradient(45deg, #56ab2f, #a8e063)', color: '#000', fontWeight: 700 }}>
+          {savingEdit ? 'Saving…' : 'Save Changes'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 };
 
@@ -222,7 +433,7 @@ const ManageTheatresTab = ({ token }) => {
     <Grid container spacing={4}>
       <Grid item xs={12} md={5}>
         <Box sx={darkCard}>
-          <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', mb: 3 }}><Add sx={{ color: '#ff6b6b', mr: 1 }} />Add Theatre</Typography>
+          <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', mb: 3 }}><Add sx={{ color: '#E5B769', mr: 1 }} />Add Theatre</Typography>
           {msg && <Alert severity="success" sx={{ mb: 2 }}>{msg}</Alert>}
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <Box component="form" onSubmit={handleSubmit}>
@@ -235,7 +446,7 @@ const ManageTheatresTab = ({ token }) => {
               Upload Image
               <input type="file" name="file" hidden accept="image/*" />
             </Button>
-            <Button variant="contained" type="submit" disabled={submitting} sx={{ mt: 2, background: 'linear-gradient(45deg, #ff6b6b, #ffd93d)', color: '#000', fontWeight: 700 }}>
+            <Button variant="contained" type="submit" disabled={submitting} sx={{ mt: 2, background: 'linear-gradient(135deg, #E5B769 0%, #C9922F 100%)', color: '#000', fontWeight: 700 }}>
               {submitting ? 'Adding…' : 'Add Theatre'}
             </Button>
           </Box>
@@ -394,7 +605,7 @@ const ManageScreensTab = ({ token }) => {
                 </Select>
               </FormControl>
               <Button fullWidth variant="contained" type="submit"
-                sx={{ mt: 2, background: 'linear-gradient(45deg, #ff6b6b, #ffd93d)', color: '#000', fontWeight: 700 }}>
+                sx={{ mt: 2, background: 'linear-gradient(135deg, #E5B769 0%, #C9922F 100%)', color: '#000', fontWeight: 700 }}>
                 Add Screen
               </Button>
             </Box>
@@ -407,7 +618,7 @@ const ManageScreensTab = ({ token }) => {
               Screens {selectedTheatreId ? `(${screens.length})` : '— Select a theatre'}
             </Typography>
             {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress sx={{ color: '#ff6b6b' }} /></Box>
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress sx={{ color: '#E5B769' }} /></Box>
             ) : (
               <TableContainer>
                 <Table size="small">
@@ -460,13 +671,13 @@ const ManageScreensTab = ({ token }) => {
                               <Chip label={s.screenType} size="small"
                                 sx={{
                                   bgcolor: s.screenType === 'IMAX' ? 'rgba(78,205,196,0.2)' : s.screenType === 'PREMIUM' ? 'rgba(255,217,61,0.2)' : 'rgba(255,255,255,0.1)',
-                                  color: s.screenType === 'IMAX' ? '#4ecdc4' : s.screenType === 'PREMIUM' ? '#ffd93d' : '#fff',
+                                  color: s.screenType === 'IMAX' ? '#4ecdc4' : s.screenType === 'PREMIUM' ? '#F5C518' : '#fff',
                                   fontSize: '0.7rem'
                                 }} />
                             </TableCell>
                             <TableCell>
-                              <IconButton size="small" onClick={() => handleEdit(s)} sx={{ color: '#ffd93d' }}><Edit fontSize="small" /></IconButton>
-                              <IconButton size="small" onClick={() => handleDelete(s.id)} sx={{ color: '#ff6b6b' }}><Delete fontSize="small" /></IconButton>
+                              <IconButton size="small" onClick={() => handleEdit(s)} sx={{ color: '#F5C518' }}><Edit fontSize="small" /></IconButton>
+                              <IconButton size="small" onClick={() => handleDelete(s.id)} sx={{ color: '#E5B769' }}><Delete fontSize="small" /></IconButton>
                             </TableCell>
                           </>
                         )}
@@ -595,7 +806,7 @@ const ManageShowsTab = ({ token }) => {
                 onChange={e => setForm(p => ({ ...p, pricePerSeat: e.target.value }))} required sx={inputSx} />
 
               <Button fullWidth variant="contained" type="submit"
-                sx={{ mt: 2, background: 'linear-gradient(45deg, #ff6b6b, #ffd93d)', color: '#000', fontWeight: 700 }}>
+                sx={{ mt: 2, background: 'linear-gradient(135deg, #E5B769 0%, #C9922F 100%)', color: '#000', fontWeight: 700 }}>
                 Create Show
               </Button>
             </Box>
@@ -680,7 +891,7 @@ const ManageBookingsTab = ({ token }) => {
           { label: 'Total Bookings', value: bookings.length, color: '#4ecdc4' },
           { label: 'Confirmed', value: bookings.filter(b => b.status === 'CONFIRMED').length, color: '#56ab2f' },
           { label: 'Cancelled', value: bookings.filter(b => b.status === 'CANCELLED').length, color: '#c0392b' },
-          { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, color: '#ffd93d' },
+          { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, color: '#F5C518' },
         ].map(stat => (
           <Grid item xs={6} md={3} key={stat.label}>
             <Box sx={{ ...darkCard, textAlign: 'center', p: 2 }}>
@@ -698,8 +909,8 @@ const ManageBookingsTab = ({ token }) => {
             sx={{
               cursor: 'pointer',
               bgcolor: filter === f ? 'rgba(255,107,107,0.3)' : 'rgba(255,255,255,0.08)',
-              color: filter === f ? '#ff6b6b' : 'rgba(255,255,255,0.6)',
-              border: `1px solid ${filter === f ? '#ff6b6b' : 'rgba(255,255,255,0.1)'}`,
+              color: filter === f ? '#E5B769' : 'rgba(255,255,255,0.6)',
+              border: `1px solid ${filter === f ? '#E5B769' : 'rgba(255,255,255,0.1)'}`,
               fontWeight: filter === f ? 700 : 400,
               '&:hover': { bgcolor: 'rgba(255,107,107,0.2)' }
             }} />
@@ -710,7 +921,7 @@ const ManageBookingsTab = ({ token }) => {
       </Box>
 
       {loading ? (
-        <Box display="flex" justifyContent="center" p={4}><CircularProgress sx={{ color: '#ff6b6b' }} /></Box>
+        <Box display="flex" justifyContent="center" p={4}><CircularProgress sx={{ color: '#E5B769' }} /></Box>
       ) : (
         <Box sx={{ ...darkCard, p: 0, overflow: 'hidden' }}>
           <TableContainer sx={{ maxHeight: 500 }}>
@@ -732,7 +943,7 @@ const ManageBookingsTab = ({ token }) => {
               <TableBody>
                 {filtered.map(b => (
                   <TableRow key={b.id} sx={{ '& td': { color: '#fff', borderColor: 'rgba(255,255,255,0.06)', fontSize: '0.8rem' }, '&:hover': { bgcolor: 'rgba(255,255,255,0.03)' } }}>
-                    <TableCell sx={{ color: '#ffd93d', fontFamily: 'monospace', fontWeight: 700 }}>#{b.bookingNumber}</TableCell>
+                    <TableCell sx={{ color: '#F5C518', fontFamily: 'monospace', fontWeight: 700 }}>#{b.bookingNumber}</TableCell>
                     <TableCell>{b.movieName}</TableCell>
                     <TableCell>{b.theatreName}</TableCell>
                     <TableCell>{b.screenName}</TableCell>
@@ -875,7 +1086,7 @@ const ReportsTab = ({ token }) => {
               { label: 'Total Bookings', value: reportData.totalBookings, color: '#4ecdc4', icon: '🎟' },
               { label: 'Total Revenue', value: `₹${Number(reportData.totalRevenue || 0).toLocaleString()}`, color: '#56ab2f', icon: '💰' },
               { label: 'Cancelled', value: reportData.cancelledBookings, color: '#c0392b', icon: '❌' },
-              { label: 'Net Bookings', value: (reportData.totalBookings || 0) - (reportData.cancelledBookings || 0), color: '#ffd93d', icon: '✅' },
+              { label: 'Net Bookings', value: (reportData.totalBookings || 0) - (reportData.cancelledBookings || 0), color: '#F5C518', icon: '✅' },
             ].map(s => (
               <Grid item xs={6} md={3} key={s.label}>
                 <Box sx={{ ...darkCard, textAlign: 'center', p: 2.5 }}>
@@ -895,7 +1106,7 @@ const ReportsTab = ({ token }) => {
                 Export CSV
               </Button>
               <Button variant="outlined" startIcon={<PictureAsPdf />} onClick={exportPDF}
-                sx={{ borderColor: '#ff6b6b', color: '#ff6b6b', fontWeight: 700, '&:hover': { bgcolor: 'rgba(255,107,107,0.1)' } }}>
+                sx={{ borderColor: '#E5B769', color: '#E5B769', fontWeight: 700, '&:hover': { bgcolor: 'rgba(255,107,107,0.1)' } }}>
                 Export PDF
               </Button>
             </Box>
@@ -914,7 +1125,7 @@ const ReportsTab = ({ token }) => {
                   <YAxis stroke="rgba(255,255,255,0.4)" tick={{ fontSize: 11 }} />
                   <Tooltip
                     contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, color: '#fff' }}
-                    labelStyle={{ color: '#ffd93d', fontWeight: 700 }}
+                    labelStyle={{ color: '#F5C518', fontWeight: 700 }}
                   />
                   <Bar dataKey="bookings" fill="#4ecdc4" radius={[4, 4, 0, 0]}>
                     {reportData.dailyStats.map((entry, index) => (
@@ -943,11 +1154,11 @@ const ReportsTab = ({ token }) => {
                   <YAxis type="category" dataKey="movie" stroke="rgba(255,255,255,0.4)" tick={{ fontSize: 11 }} width={90} />
                   <Tooltip
                     contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, color: '#fff' }}
-                    labelStyle={{ color: '#ffd93d', fontWeight: 700 }}
+                    labelStyle={{ color: '#F5C518', fontWeight: 700 }}
                   />
-                  <Bar dataKey="bookings" fill="#ff6b6b" radius={[0, 4, 4, 0]}>
+                  <Bar dataKey="bookings" fill="#E5B769" radius={[0, 4, 4, 0]}>
                     {reportData.movieStats.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={['#ff6b6b', '#ffd93d', '#4ecdc4', '#a8e063', '#ff9ff3'][index % 5]} />
+                      <Cell key={`cell-${index}`} fill={['#E5B769', '#F5C518', '#4ecdc4', '#a8e063', '#ff9ff3'][index % 5]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -987,7 +1198,7 @@ const ApproveAdminsTab = ({ token }) => {
     }
   };
 
-  if (loading) return <Box display="flex" justifyContent="center" p={4}><CircularProgress sx={{ color: '#ff6b6b' }} /></Box>;
+  if (loading) return <Box display="flex" justifyContent="center" p={4}><CircularProgress sx={{ color: '#E5B769' }} /></Box>;
 
   return (
     <Box>
@@ -1043,11 +1254,11 @@ const AdminDashboard = () => {
   const [tabIndex, setTabIndex] = useState(0);
 
   return (
-    <Box sx={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0f0f0f 0%, #1a1a2e 50%, #16213e 100%)', py: 4 }}>
+    <Box sx={{ minHeight: '100vh', background: 'radial-gradient(1200px 620px at 50% -12%, rgba(229,183,105,0.10), transparent 60%), #0a0a0b', py: 4 }}>
       <Container maxWidth="xl">
         <Typography variant="h4" fontWeight="900" sx={{
           color: '#fff', mb: 4,
-          background: 'linear-gradient(45deg, #ff6b6b, #ffd93d)',
+          background: 'linear-gradient(135deg, #E5B769 0%, #C9922F 100%)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
         }}>
@@ -1062,8 +1273,8 @@ const AdminDashboard = () => {
             scrollButtons="auto"
             sx={{
               '& .MuiTab-root': { color: 'rgba(255,255,255,0.5)', fontWeight: 600, minHeight: 56 },
-              '& .Mui-selected': { color: '#ff6b6b !important' },
-              '& .MuiTabs-indicator': { backgroundColor: '#ff6b6b', height: 3 },
+              '& .Mui-selected': { color: '#E5B769 !important' },
+              '& .MuiTabs-indicator': { backgroundColor: '#E5B769', height: 3 },
             }}
           >
             {tabs.map((tab, idx) => (

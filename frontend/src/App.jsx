@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Box, Typography } from '@mui/material';
 import Navbar from './components/Navbar';
+import { NOIR } from './theme';
 import RegisterPage from './pages/RegisterPage';
 import LoginPage from './pages/LoginPage';
 import MovieListPage from './pages/MovieListPage';
@@ -15,7 +17,9 @@ import BookingHistoryPage from './pages/BookingHistoryPage';
 function App() {
   return (
     <Router>
+      <Box sx={{ minHeight: '100vh', bgcolor: NOIR.bg, display: 'flex', flexDirection: 'column' }}>
       <Navbar />
+      <Box sx={{ flex: 1 }}>
       <Routes>
         <Route path="/" element={<MovieListPage />} />
         <Route path="/movies" element={<MovieListPage />} />
@@ -40,6 +44,20 @@ function App() {
           </ProtectedRoute>
         } />
       </Routes>
+      </Box>
+      <Box component="footer" sx={{
+        borderTop: `1px solid ${NOIR.border}`,
+        py: 3, px: 2, textAlign: 'center',
+        bgcolor: NOIR.bgElev,
+      }}>
+        <Typography sx={{ fontFamily: '"Fraunces", serif', color: NOIR.text, fontWeight: 600, letterSpacing: '0.02em' }}>
+          AURORA<Box component="span" sx={{ color: NOIR.amber }}>.</Box>CINEMA
+        </Typography>
+        <Typography sx={{ color: NOIR.textFaint, fontSize: '0.8rem', mt: 0.5 }}>
+          Where every seat tells a story · © {new Date().getFullYear()}
+        </Typography>
+      </Box>
+      </Box>
     </Router>
   );
 }

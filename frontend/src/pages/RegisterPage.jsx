@@ -2,15 +2,14 @@ import React, { useState } from 'react';
 import { Box, TextField, Button, Typography, Container, Paper, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
+import { NOIR, pageBg } from '../theme';
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', role: 'USER' });
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,103 +22,45 @@ const RegisterPage = () => {
   };
 
   return (
-    <Box 
-      sx={{ 
-        minHeight: '100vh', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        background: 'linear-gradient(to right bottom, rgba(18, 18, 18, 0.8), rgba(18, 18, 18, 0.95)), url("https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?q=80&w=2070&auto=format&fit=crop")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        py: 4
-      }}
-    >
+    <Box sx={{ ...pageBg, display: 'flex', alignItems: 'center', justifyContent: 'center', py: 5 }}>
       <Container maxWidth="sm">
-        <Paper 
-          elevation={24} 
-          sx={{ 
-            p: { xs: 3, md: 5 }, 
-            borderRadius: 3,
-            background: 'rgba(30, 30, 30, 0.65)',
-            backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)'
-          }}
-        >
+        <Paper sx={{ p: { xs: 3, md: 5 }, borderRadius: 5, bgcolor: NOIR.surface, border: `1px solid ${NOIR.border}`, boxShadow: '0 40px 80px -30px rgba(0,0,0,0.9)' }}>
           <Box sx={{ mb: 4, textAlign: 'center' }}>
-            <Typography variant="h3" fontWeight="800" sx={{
-              background: 'linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              mb: 1
-            }}>
-              Join the Club
+            <Typography sx={{ color: NOIR.amber, letterSpacing: '0.3em', fontSize: '0.68rem', fontWeight: 700, mb: 1.5 }}>
+              AURORA · CINEMA
             </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Create an account to manage your tickets easily.
+            <Typography sx={{ fontFamily: '"Fraunces", serif', fontWeight: 600, color: NOIR.text, fontSize: '2.2rem', mb: 0.5 }}>
+              Join the club
             </Typography>
+            <Typography sx={{ color: NOIR.textDim }}>Create an account to manage your tickets with ease.</Typography>
           </Box>
-          
+
           {error && (
-            <Typography color="error" align="center" sx={{ mb: 3, p: 1, bgcolor: 'rgba(211, 47, 47, 0.1)', borderRadius: 1, border: '1px solid rgba(211, 47, 47, 0.3)' }}>
+            <Typography sx={{ mb: 3, p: 1.2, textAlign: 'center', color: NOIR.danger, bgcolor: NOIR.dangerSoft, borderRadius: 2, border: `1px solid rgba(229,72,77,0.3)` }}>
               {error}
             </Typography>
           )}
 
           <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl fullWidth variant="filled" sx={{ bgcolor: 'rgba(0,0,0,0.2)', borderRadius: 1 }}>
+            <FormControl fullWidth>
               <InputLabel>Register As</InputLabel>
-              <Select name="role" value={formData.role} onChange={handleChange} disableUnderline>
+              <Select name="role" value={formData.role} label="Register As" onChange={handleChange}>
                 <MenuItem value="USER">Standard User</MenuItem>
                 <MenuItem value="ADMIN">Theatre Admin</MenuItem>
               </Select>
             </FormControl>
-            
-            <TextField 
-              fullWidth label="Full Name" name="name" onChange={handleChange} required 
-              variant="filled"
-              InputProps={{ sx: { borderRadius: 1, bgcolor: 'rgba(0,0,0,0.2)', '&:hover': { bgcolor: 'rgba(0,0,0,0.3)' } } }}
-            />
-            <TextField 
-              fullWidth label="Email Address" type="email" name="email" onChange={handleChange} required 
-              variant="filled"
-              InputProps={{ sx: { borderRadius: 1, bgcolor: 'rgba(0,0,0,0.2)', '&:hover': { bgcolor: 'rgba(0,0,0,0.3)' } } }}
-            />
-            <TextField 
-              fullWidth label="Phone Number" name="phone" onChange={handleChange} required 
-              variant="filled"
-              InputProps={{ sx: { borderRadius: 1, bgcolor: 'rgba(0,0,0,0.2)', '&:hover': { bgcolor: 'rgba(0,0,0,0.3)' } } }}
-            />
-            <TextField 
-              fullWidth label="Password" type="password" name="password" onChange={handleChange} required 
-              variant="filled"
-              InputProps={{ sx: { borderRadius: 1, bgcolor: 'rgba(0,0,0,0.2)', '&:hover': { bgcolor: 'rgba(0,0,0,0.3)' } } }}
-            />
-            
-            <Button 
-              fullWidth 
-              variant="contained" 
-              type="submit" 
-              size="large"
-              sx={{ 
-                mt: 2, 
-                mb: 1, 
-                py: 1.5, 
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                borderRadius: 2,
-                background: 'linear-gradient(45deg, #FE6B8B 30%, #FF8E53 90%)',
-                boxShadow: '0 3px 15px 2px rgba(255, 105, 135, .3)',
-                transition: 'transform 0.2s',
-                '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 6px 20px 2px rgba(255, 105, 135, .4)' }
-              }}
-            >
+
+            <TextField fullWidth label="Full Name" name="name" onChange={handleChange} required />
+            <TextField fullWidth label="Email Address" type="email" name="email" onChange={handleChange} required />
+            <TextField fullWidth label="Phone Number" name="phone" onChange={handleChange} required />
+            <TextField fullWidth label="Password" type="password" name="password" onChange={handleChange} required />
+
+            <Button fullWidth variant="contained" type="submit" size="large" sx={{ mt: 2, py: 1.5, fontSize: '1.05rem' }}>
               Create Account
             </Button>
-            
-            <Typography variant="body2" align="center" color="text.secondary" sx={{ mt: 1 }}>
-              Already have an account? <Link to="/login" style={{ color: '#FF8E53', textDecoration: 'none', fontWeight: 'bold' }}>Sign In</Link>
+
+            <Typography variant="body2" align="center" sx={{ color: NOIR.textDim, mt: 1 }}>
+              Already have an account? <Link to="/login" style={{ color: NOIR.amber, textDecoration: 'none', fontWeight: 700 }}>Sign In</Link>
             </Typography>
           </Box>
         </Paper>

@@ -37,4 +37,9 @@ public class Movie {
     private String posterImageUrl;
 
     private String trailerUrl;
+
+    // IMDb id (e.g. tt1375666) when the movie was imported from OMDb.
+    // Unique so the same title can't be imported twice.
+    @Column(unique = true)
+    private String imdbId;
 }
