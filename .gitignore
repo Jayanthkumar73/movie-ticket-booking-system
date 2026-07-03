@@ -1,0 +1,27 @@
+# Scratch and Temp files in root
+movies_debug.json
+movies_java_code.txt
+seed_movies_cloudinary.py
+temp_poster.jpg
+test_poster2.jpg
+
+# IDE / System files
+.idea/
+.vscode/
+*.log
+*.tmp
+*.bak
+Thumbs.db
+.DS_Store
+
+# Backend
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/mvnw.cmd
+backend/mvnw
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.eslintcache
