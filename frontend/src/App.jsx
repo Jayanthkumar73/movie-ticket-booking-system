@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Box, Typography } from '@mui/material';
 import Navbar from './components/Navbar';
 import { NOIR } from './theme';
@@ -13,6 +13,14 @@ import SeatSelectionPage from './pages/SeatSelectionPage';
 import BookingConfirmPage from './pages/BookingConfirmPage';
 import BookingSuccessPage from './pages/BookingSuccessPage';
 import BookingHistoryPage from './pages/BookingHistoryPage';
+import { useSelector } from 'react-redux';
+
+// Guard: Super Admin always goes to /admin, never the movie pages
+const MoviePageGuard = ({ children }) => {
+  const { roles } = useSelector(state => state.auth);
+  if (roles?.includes('ROLE_SUPER_ADMIN')) return <Navigate to="/admin" replace />;
+  return children;
+};
 
 function App() {
   return (
@@ -21,8 +29,8 @@ function App() {
       <Navbar />
       <Box sx={{ flex: 1 }}>
       <Routes>
-        <Route path="/" element={<MovieListPage />} />
-        <Route path="/movies" element={<MovieListPage />} />
+        <Route path="/" element={<MoviePageGuard><MovieListPage /></MoviePageGuard>} />
+        <Route path="/movies" element={<MoviePageGuard><MovieListPage /></MoviePageGuard>} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/admin" element={

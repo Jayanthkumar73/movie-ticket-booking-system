@@ -150,7 +150,7 @@ const MovieListPage = () => {
         ) : (
           <Grid container spacing={{ xs: 3, md: 4 }}>
             {filtered.map((movie) => (
-              <Grid item key={movie.id} xs={6} sm={6} md={4} lg={3}>
+              <Grid key={movie.id} xs={6} sm={6} md={4} lg={3}>
                 <Box
                   onClick={() => navigate(`/movies/${movie.id}/shows`)}
                   sx={{

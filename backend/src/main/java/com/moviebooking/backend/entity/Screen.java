@@ -1,6 +1,6 @@
 package com.moviebooking.backend.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -28,6 +28,7 @@ public class Screen {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "theatre_id", nullable = false)
-    @JsonIgnore
+    // Serialize only what we need; exclude the screens list back to avoid circular JSON
+    @JsonIgnoreProperties({"screens", "hibernateLazyInitializer", "handler"})
     private Theatre theatre;
 }

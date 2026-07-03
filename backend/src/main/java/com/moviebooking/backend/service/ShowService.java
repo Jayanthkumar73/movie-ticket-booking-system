@@ -30,8 +30,17 @@ public class ShowService {
     }
 
     public List<Show> getShowsByMovie(Long movieId) {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalTime now = java.time.LocalTime.now();
         return showRepository.findByMovieId(movieId).stream()
                 .filter(s -> s.getStatus() == ShowStatus.ACTIVE)
+                .filter(s -> {
+                    // Completely hide past dates
+                    if (s.getShowDate().isBefore(today)) return false;
+                    // For today's shows, hide those whose time has already passed
+                    if (s.getShowDate().isEqual(today) && s.getShowTime().isBefore(now)) return false;
+                    return true;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -53,8 +62,10 @@ public class ShowService {
 
     public SeatInfoDTO getSeatInfo(Long showId) {
         Show show = getShowById(showId);
+        java.time.LocalDateTime lockExpiryTime = java.time.LocalDateTime.now().minusMinutes(5);
         List<String> bookedSeats = bookingRepository.findByShowId(showId).stream()
-                .filter(b -> b.getStatus() == BookingStatus.CONFIRMED)
+                .filter(b -> b.getStatus() == BookingStatus.CONFIRMED || 
+                            (b.getStatus() == BookingStatus.PENDING && b.getBookingDate().isAfter(lockExpiryTime)))
                 .flatMap(b -> Arrays.stream(b.getSelectedSeats().split(",")))
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());

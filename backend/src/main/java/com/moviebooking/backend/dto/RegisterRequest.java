@@ -9,4 +9,5 @@ public class RegisterRequest {
     private String phone;
     private String password;
     private String role; // e.g., "USER" or "ADMIN"
+    private Long theatreId; // Only used for ADMIN role registration
 }

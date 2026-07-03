@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Box, Container, Typography, CircularProgress, Button, Paper } from '@mui/material';
+import { Box, Container, Typography, CircularProgress, Button, Paper, Alert, Chip } from '@mui/material';
+import { LocationOn } from '@mui/icons-material';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
 import { NOIR, pageBg } from '../theme';
@@ -31,6 +32,8 @@ const SeatSelectionPage = () => {
 
   const [seatInfo, setSeatInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [locking, setLocking] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [seatRows, setSeatRows] = useState([]);
 
@@ -39,13 +42,27 @@ const SeatSelectionPage = () => {
       navigate('/login');
       return;
     }
-    axios.get(`/api/shows/${id}/seats`)
-      .then(res => {
-        setSeatInfo(res.data);
-        setSeatRows(generateSeats(res.data.totalSeats));
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+
+    const loadSeats = () =>
+      axios.get(`/api/shows/${id}/seats`)
+        .then(res => {
+          setSeatInfo(res.data);
+          setSeatRows(generateSeats(res.data.totalSeats));
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+
+    loadSeats();
+
+    // Refresh seat availability every 30 seconds so newly booked or released
+    // seats appear immediately without the user having to reload the page.
+    const interval = setInterval(() => {
+      axios.get(`/api/shows/${id}/seats`)
+        .then(res => setSeatInfo(res.data))
+        .catch(console.error);
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, [id, isAuthenticated, navigate]);
 
   const toggleSeat = (seat) => {
@@ -69,6 +86,41 @@ const SeatSelectionPage = () => {
 
   const totalPrice = seatInfo ? selectedSeats.length * Number(seatInfo.pricePerSeat) : 0;
 
+  const handleProceedToPayment = async () => {
+    const { token } = useSelector.getState ? useSelector.getState().auth : { token: localStorage.getItem('token') }; // Fallback if useSelector can't be used here easily, wait we can just use the token from state
+    setLocking(true);
+    setErrorMsg('');
+    try {
+      // Get the token from Redux store directly (via a hook we'll add above or localStorage)
+      const currentToken = localStorage.getItem('token'); // Simplest way to get it here if we don't extract it
+      const res = await axios.post('/api/bookings/lock', {
+        showId: Number(id),
+        selectedSeats
+      }, {
+        headers: { Authorization: `Bearer ${currentToken}` }
+      });
+      
+      // Successfully locked. Pass the booking ID to the confirmation page.
+      navigate('/booking/confirm', {
+        state: { 
+          bookingId: res.data.id,
+          showId: Number(id), 
+          selectedSeats, 
+          totalAmount: totalPrice, 
+          show, 
+          movie, 
+          pricePerSeat: seatInfo?.pricePerSeat 
+        }
+      });
+    } catch (err) {
+      setErrorMsg(err.response?.data?.message || err.response?.data || 'Failed to lock seats. Someone else may have just booked them.');
+      // Refresh seat info to show the newly booked seats
+      axios.get(`/api/shows/${id}/seats`).then(res => setSeatInfo(res.data)).catch(console.error);
+    } finally {
+      setLocking(false);
+    }
+  };
+
   if (loading) return (
     <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh" sx={pageBg}>
       <CircularProgress sx={{ color: NOIR.amber }} />
@@ -80,11 +132,51 @@ const SeatSelectionPage = () => {
       <Container maxWidth="lg">
         <Button variant="text" sx={{ mb: 2, px: 0 }} onClick={() => navigate(-1)}>← Back to Shows</Button>
 
+        {errorMsg && (
+          <Alert severity="error" sx={{ mb: 3, bgcolor: NOIR.dangerSoft, color: NOIR.danger, border: `1px solid rgba(229,72,77,0.3)` }}>
+            {errorMsg}
+          </Alert>
+        )}
+
         <Typography sx={{ fontFamily: '"Fraunces", serif', fontWeight: 600, color: NOIR.text, fontSize: { xs: '1.9rem', md: '2.4rem' }, textAlign: 'center' }}>
           {movie?.movieName || 'Select Seats'}
         </Typography>
-        <Typography sx={{ color: NOIR.textDim, textAlign: 'center', mb: 5, mt: 0.5 }}>
-          {show?.screen?.screenName} · {show?.showDate} · {show?.showTime?.substring(0, 5)}
+
+        {/* Theatre name banner — prominently shown so user always knows WHERE they are booking */}
+        {show?.screen?.theatre?.theatreName && (
+          <Box sx={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: 1, mt: 1.5, mb: 1,
+          }}>
+            <Chip
+              icon={<LocationOn sx={{ color: `${NOIR.amber} !important`, fontSize: 16 }} />}
+              label={
+                <>
+                  <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Theatre&nbsp;·&nbsp;</span>
+                  <span style={{ color: '#E5B769', fontWeight: 800, fontSize: '0.9rem' }}>
+                    {show.screen.theatre.theatreName}
+                  </span>
+                  {show.screen.theatre.city && (
+                    <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.78rem' }}>
+                      &nbsp;·&nbsp;{show.screen.theatre.city}
+                    </span>
+                  )}
+                </>
+              }
+              sx={{
+                bgcolor: 'rgba(229,183,105,0.1)',
+                border: '1px solid rgba(229,183,105,0.35)',
+                borderRadius: '24px',
+                height: 38,
+                px: 1,
+                '& .MuiChip-label': { display: 'flex', alignItems: 'center' },
+              }}
+            />
+          </Box>
+        )}
+
+        <Typography sx={{ color: NOIR.textDim, textAlign: 'center', mb: 5, mt: 0.5, fontSize: '0.9rem' }}>
+          {show?.screen?.screenName} · {show?.screen?.screenType} · {show?.showDate} · {show?.showTime?.substring(0, 5)}
         </Typography>
 
         {/* Screen indicator */}
@@ -153,6 +245,14 @@ const SeatSelectionPage = () => {
             <Typography sx={{ color: NOIR.text, mb: 2, fontWeight: 700, fontFamily: '"Fraunces", serif', fontSize: '1.2rem' }}>
               Booking Summary
             </Typography>
+            {show?.screen?.theatre?.theatreName && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography sx={{ color: NOIR.textDim }}>Theatre</Typography>
+                <Typography sx={{ color: NOIR.amber, fontWeight: 700, textAlign: 'right', maxWidth: '60%' }}>
+                  {show.screen.theatre.theatreName}
+                </Typography>
+              </Box>
+            )}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography sx={{ color: NOIR.textDim }}>Selected Seats</Typography>
               <Typography sx={{ color: NOIR.amber, fontWeight: 700, maxWidth: '60%', textAlign: 'right', wordBreak: 'break-word' }}>
@@ -169,12 +269,11 @@ const SeatSelectionPage = () => {
             </Box>
             <Button
               fullWidth variant="contained" size="large"
-              onClick={() => navigate('/booking/confirm', {
-                state: { showId: Number(id), selectedSeats, totalAmount: totalPrice, show, movie, pricePerSeat: seatInfo?.pricePerSeat }
-              })}
+              disabled={locking}
+              onClick={handleProceedToPayment}
               sx={{ fontSize: '1.05rem', py: 1.5 }}
             >
-              Proceed to Payment →
+              {locking ? <CircularProgress size={24} color="inherit" /> : 'Proceed to Payment →'}
             </Button>
           </Paper>
         )}

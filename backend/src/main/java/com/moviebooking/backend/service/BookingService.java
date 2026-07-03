@@ -15,6 +15,12 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.razorpay.Order;
+import com.razorpay.RazorpayClient;
+import com.razorpay.Utils;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
+
 @Service
 public class BookingService {
 
@@ -30,8 +36,14 @@ public class BookingService {
     @Autowired
     private EmailService emailService;
 
+    @Value("${razorpay.key.id}")
+    private String razorpayKeyId;
+
+    @Value("${razorpay.key.secret}")
+    private String razorpayKeySecret;
+
     @Transactional
-    public BookingResponse bookTicket(BookingRequest request, Long userId) {
+    public BookingResponse lockSeats(BookingRequest request, Long userId) {
         Show show = showRepository.findById(request.getShowId())
                 .orElseThrow(() -> new RuntimeException("Show not found"));
 
@@ -44,19 +56,22 @@ public class BookingService {
             throw new RuntimeException("Cannot book tickets for past shows");
         }
 
-        List<String> alreadyBooked = bookingRepository.findByShowId(show.getId()).stream()
-                .filter(b -> b.getStatus() == BookingStatus.CONFIRMED)
+        // Check for conflicts: Seats that are CONFIRMED or currently PENDING (less than 5 mins old)
+        LocalDateTime lockExpiryTime = LocalDateTime.now().minusMinutes(5);
+        List<String> bookedOrLocked = bookingRepository.findByShowId(show.getId()).stream()
+                .filter(b -> b.getStatus() == BookingStatus.CONFIRMED || 
+                            (b.getStatus() == BookingStatus.PENDING && b.getBookingDate().isAfter(lockExpiryTime)))
                 .flatMap(b -> Arrays.stream(b.getSelectedSeats().split(",")))
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
 
         List<String> requested = request.getSelectedSeats();
         List<String> conflicts = requested.stream()
-                .filter(alreadyBooked::contains)
+                .filter(bookedOrLocked::contains)
                 .collect(Collectors.toList());
 
         if (!conflicts.isEmpty()) {
-            throw new RuntimeException("Seats already booked: " + String.join(", ", conflicts));
+            throw new RuntimeException("Seats already booked or temporarily locked: " + String.join(", ", conflicts));
         }
 
         User user = userRepository.findById(userId)
@@ -68,20 +83,130 @@ public class BookingService {
         booking.setBookingNumber(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         booking.setSelectedSeats(String.join(",", requested));
         booking.setTotalAmount(totalAmount);
-        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setStatus(BookingStatus.PENDING); // Mark as PENDING initially
         booking.setBookingDate(LocalDateTime.now());
         booking.setShow(show);
         booking.setUser(user);
 
         Booking saved = bookingRepository.save(booking);
 
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public BookingResponse confirmBooking(Long bookingId, Long userId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        if (!booking.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized: cannot confirm another user's booking");
+        }
+
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            throw new RuntimeException("Booking is already confirmed");
+        }
+
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new RuntimeException("Booking was cancelled");
+        }
+
+        // Check if 5 minutes have passed
+        if (booking.getBookingDate().plusMinutes(5).isBefore(LocalDateTime.now())) {
+            booking.setStatus(BookingStatus.CANCELLED);
+            bookingRepository.save(booking);
+            throw new RuntimeException("Booking session expired (5 minutes timeout). Please select seats again.");
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        Booking saved = bookingRepository.save(booking);
+
         try {
-            emailService.sendBookingConfirmation(user.getEmail(), saved);
+            emailService.sendBookingConfirmation(booking.getUser().getEmail(), saved);
         } catch (Exception e) {
             // non-critical
         }
 
         return toResponse(saved);
+    }
+
+    public Map<String, String> createRazorpayOrder(Long bookingId, Long userId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+        if (!booking.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized");
+        }
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            throw new RuntimeException("Booking already confirmed");
+        }
+        
+        try {
+            RazorpayClient razorpay = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+            JSONObject orderRequest = new JSONObject();
+            // Amount in paise
+            orderRequest.put("amount", booking.getTotalAmount().multiply(new BigDecimal("100")).intValue());
+            orderRequest.put("currency", "INR");
+            orderRequest.put("receipt", "txn_" + booking.getBookingNumber());
+
+            Order order = razorpay.orders.create(orderRequest);
+            booking.setRazorpayOrderId(order.get("id"));
+            bookingRepository.save(booking);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("orderId", order.get("id"));
+            response.put("amount", String.valueOf(booking.getTotalAmount()));
+            return response;
+        } catch (Exception e) {
+            throw new RuntimeException("Error creating Razorpay order: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public BookingResponse verifyPayment(Long bookingId, String razorpayPaymentId, String razorpaySignature, Long userId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                
+        if (!booking.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized");
+        }
+
+        try {
+            JSONObject options = new JSONObject();
+            options.put("razorpay_order_id", booking.getRazorpayOrderId());
+            options.put("razorpay_payment_id", razorpayPaymentId);
+            options.put("razorpay_signature", razorpaySignature);
+
+            boolean status = Utils.verifyPaymentSignature(options, razorpayKeySecret);
+            if (!status) {
+                throw new RuntimeException("Payment signature verification failed");
+            }
+            
+            booking.setRazorpayPaymentId(razorpayPaymentId);
+            booking.setStatus(BookingStatus.CONFIRMED);
+            Booking saved = bookingRepository.save(booking);
+
+            try {
+                emailService.sendBookingConfirmation(booking.getUser().getEmail(), saved);
+            } catch (Exception e) {}
+
+            return toResponse(saved);
+        } catch (Exception e) {
+            throw new RuntimeException("Error verifying payment: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void releaseSeats(Long bookingId, Long userId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+                
+        if (!booking.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized: cannot release another user's booking");
+        }
+        
+        if (booking.getStatus() == BookingStatus.PENDING) {
+            booking.setStatus(BookingStatus.CANCELLED);
+            bookingRepository.save(booking);
+        }
     }
 
     public List<BookingResponse> getUserBookings(Long userId) {
@@ -132,7 +257,21 @@ public class BookingService {
 
     public BookingReportDTO getReport(LocalDate from, LocalDate to) {
         List<Booking> bookings = bookingRepository.findByShow_ShowDateBetween(from, to);
+        return buildReport(bookings);
+    }
 
+    public List<BookingResponse> getBookingsByTheatre(Long theatreId) {
+        return bookingRepository.findByShow_Screen_Theatre_Id(theatreId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public BookingReportDTO getReportByTheatre(Long theatreId, LocalDate from, LocalDate to) {
+        List<Booking> bookings = bookingRepository.findByShow_Screen_Theatre_IdAndShow_ShowDateBetween(theatreId, from, to);
+        return buildReport(bookings);
+    }
+
+    private BookingReportDTO buildReport(List<Booking> bookings) {
         long total = bookings.stream()
                 .filter(b -> b.getStatus() == BookingStatus.CONFIRMED)
                 .count();

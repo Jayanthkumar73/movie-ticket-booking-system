@@ -1,0 +1,203 @@
+package com.moviebooking.backend.config;
+
+import com.moviebooking.backend.entity.*;
+import com.moviebooking.backend.repository.*;
+import com.moviebooking.backend.service.CloudinaryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+@Component
+public class DatabaseInitializer implements CommandLineRunner {
+
+    @Autowired
+    private MovieRepository movieRepository;
+
+    @Autowired
+    private TheatreRepository theatreRepository;
+
+    @Autowired
+    private ScreenRepository screenRepository;
+
+    @Autowired
+    private ShowRepository showRepository;
+
+    @Autowired
+    private BookingRepository bookingRepository;
+
+    @Autowired
+    private CloudinaryService cloudinaryService;
+
+    @Override
+    public void run(String... args) throws Exception {
+        // Only seed if the database is completely empty.
+        // This prevents wiping real bookings and data on every restart.
+        if (movieRepository.count() > 0) {
+            System.out.println("Database already has data — skipping seed to preserve existing bookings.");
+            return;
+        }
+
+        System.out.println("Empty database detected — seeding initial data...");
+        initializeTheatresAndScreens();
+        initializeMovies();
+        initializeShows();
+    }
+
+    private void initializeTheatresAndScreens() {
+        System.out.println("Initializing theatres and screens...");
+        List<Theatre> theatres = new ArrayList<>();
+
+        // Hyderabad Theatres
+        theatres.add(new Theatre(null, "PVR Forum Mall", "Hyderabad", "Kukatpally, Hyderabad", "Ramesh Kumar", "9876543210", "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=500", new ArrayList<>()));
+        theatres.add(new Theatre(null, "Prasads Multiplex", "Hyderabad", "Khairatabad, Hyderabad", "Vijay Prasad", "9876543211", "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500", new ArrayList<>()));
+        theatres.add(new Theatre(null, "AMB Cinemas", "Hyderabad", "Gachibowli, Hyderabad", "Mahesh G", "9876543212", "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=500", new ArrayList<>()));
+
+        // Bangalore Theatres
+        theatres.add(new Theatre(null, "Inox Garuda Mall", "Bangalore", "Magrath Road, Bangalore", "Suresh Gowda", "9876543213", "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500", new ArrayList<>()));
+        theatres.add(new Theatre(null, "PVR Director's Cut", "Bangalore", "Vittal Mallya Road, Bangalore", "Anil Kumble", "9876543214", "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=500", new ArrayList<>()));
+
+        // Chennai Theatres
+        theatres.add(new Theatre(null, "Sathyam Cinemas", "Chennai", "Royapettah, Chennai", "Karthik R", "9876543215", "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500", new ArrayList<>()));
+        theatres.add(new Theatre(null, "Inox Marina Mall", "Chennai", "OMR, Chennai", "Venkat R", "9876543216", "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=500", new ArrayList<>()));
+
+        for (Theatre theatre : theatres) {
+            Theatre savedTheatre = theatreRepository.save(theatre);
+
+            // Add screens to theatre
+            Screen screen1 = new Screen(null, "Screen 1 - IMAX", 100, ScreenType.IMAX, savedTheatre);
+            Screen screen2 = new Screen(null, "Screen 2 - PREMIUM", 80, ScreenType.PREMIUM, savedTheatre);
+            Screen screen3 = new Screen(null, "Screen 3 - REGULAR", 60, ScreenType.REGULAR, savedTheatre);
+
+            screenRepository.save(screen1);
+            screenRepository.save(screen2);
+            screenRepository.save(screen3);
+        }
+        System.out.println("Theatres and screens initialized successfully!");
+    }
+
+    private void initializeMovies() {
+        System.out.println("Initializing movies with valid Cloudinary URLs...");
+        List<Movie> popularMovies = new ArrayList<>();
+
+        popularMovies.add(new Movie(null, "The Cotton Club", "English", "Crime/Drama/Music", 127, LocalDate.of(1984, 1, 1), "The Cotton Club was a famous night club in Harlem. The story follows the people that visited the club, those that ran it, and is peppered with the Jazz music that made it so famous.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879546/nshtr1cgtiipmveeeogh.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Crocodile Dundee", "English", "Adventure/Comedy", 97, LocalDate.of(1986, 1, 1), "An American reporter goes to the Australian outback to meet an eccentric crocodile poacher and invites him to New York City.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879550/m43r4iqb2p6ugl79gafq.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Ratatouille", "English", "Animation/Comedy/Family", 111, LocalDate.of(2007, 1, 1), "A rat who can cook makes an unusual alliance with a young kitchen worker at a famous restaurant.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879553/s5zrndfbwlqub6nkr9to.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "City of God", "English", "Crime/Drama", 130, LocalDate.of(2002, 1, 1), "Two boys growing up in a violent neighborhood of Rio de Janeiro take different paths: one becomes a photographer, the other a drug dealer.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879555/s7kbzadqtbicsgory3sw.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Stardust", "English", "Adventure/Family/Fantasy", 127, LocalDate.of(2007, 1, 1), "In a countryside town bordering on a magical land, a young man makes a promise to his beloved that he'll retrieve a fallen star by venturing into the magical realm.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879558/oij4ldfwt0dmto7xzmxk.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Apocalypto", "English", "Action/Adventure/Drama", 139, LocalDate.of(2006, 1, 1), "As the Mayan kingdom faces its decline, the rulers insist the key to prosperity is to build more temples and offer human sacrifices. Jaguar Paw, a young man captured for sacrifice, flees to avoid his fate.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879560/bmojd0oszzm72mathgla.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "No Country for Old Men", "English", "Crime/Drama/Thriller", 122, LocalDate.of(2007, 1, 1), "Violence and mayhem ensue after a hunter stumbles upon a drug deal gone wrong and more than two million dollars in cash near the Rio Grande.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879563/wzcekfac7hmgosqqj7vy.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Third Man", "English", "Film-Noir/Mystery/Thriller", 93, LocalDate.of(1949, 1, 1), "Pulp novelist Holly Martins travels to shadowy, postwar Vienna, only to find himself investigating the mysterious death of an old friend, Harry Lime.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879566/qimdotbcetiig1zs4ttl.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Scarface", "English", "Crime/Drama", 170, LocalDate.of(1983, 1, 1), "In Miami in 1980, a determined Cuban immigrant takes over a drug cartel and succumbs to greed.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879569/obrb0aedqgq6nwdisvdl.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Sid and Nancy", "English", "Biography/Drama/Music", 112, LocalDate.of(1986, 1, 1), "Morbid biographical story of Sid Vicious, bassist with British punk group the Sex Pistols, and his girlfriend Nancy Spungen. When the Sex Pistols break up after their fateful US tour, ...", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879571/t8famtctoy4xsmhrgdqc.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Black Swan", "English", "Drama/Thriller", 108, LocalDate.of(2010, 1, 1), "A committed dancer wins the lead role in a production of Tchaikovsky's 'Swan Lake' only to find herself struggling to maintain her sanity.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879574/n4mjuo5vkczpjko5udas.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Inception", "English", "Action/Adventure/Sci-Fi", 148, LocalDate.of(2010, 1, 1), "A thief, who steals corporate secrets through use of dream-sharing technology, is given the inverse task of planting an idea into the mind of a CEO.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879577/b4g3v2ll62zp7ij7fwpu.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Chasing Amy", "English", "Comedy/Drama/Romance", 113, LocalDate.of(1997, 1, 1), "Holden and Banky are comic book artists. Everything's going good for them until they meet Alyssa, also a comic book artist. Holden falls for her, but his hopes are crushed when he finds out she's gay.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879580/lf27cfwf147ws6uj6ifk.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Silence of the Lambs", "English", "Crime/Drama/Thriller", 118, LocalDate.of(1991, 1, 1), "A young F.B.I. cadet must confide in an incarcerated and manipulative killer to receive his help on catching another serial killer who skins his victims.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879582/xnc7ap2pvoirn8dk5xuu.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Midnight Express", "English", "Crime/Drama/Thriller", 121, LocalDate.of(1978, 1, 1), "Billy Hayes, an American college student, is caught smuggling drugs out of Turkey and thrown into prison.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879585/r9bcvb6un1b1ykd1vsow.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Pulp Fiction", "English", "Crime/Drama", 154, LocalDate.of(1994, 1, 1), "The lives of two mob hit men, a boxer, a gangster's wife, and a pair of diner bandits intertwine in four tales of violence and redemption.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879588/wzts7ysjienlt2xy8xf2.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Lock, Stock and Two Smoking Barrels", "English", "Comedy/Crime", 107, LocalDate.of(1998, 1, 1), "A botched card game in London triggers four friends, thugs, weed-growers, hard gangsters, loan sharks and debt collectors to collide with each other in a series of unexpected events, all for the sake of weed, cash and two antique shotguns.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879591/yfjj7gwvxa16ji2ayrip.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Rear Window", "English", "Mystery/Thriller", 112, LocalDate.of(1954, 1, 1), "A wheelchair-bound photographer spies on his neighbours from his apartment window and becomes convinced one of them has committed murder.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879593/hhrabdebycoikuakzsiq.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Shutter Island", "English", "Mystery/Thriller", 138, LocalDate.of(2010, 1, 1), "In 1954, a U.S. marshal investigates the disappearance of a murderess who escaped from a hospital for the criminally insane.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879596/rr2yewbkjwk01wx18hle.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Moneyball", "English", "Biography/Drama/Sport", 133, LocalDate.of(2011, 1, 1), "Oakland A's general manager Billy Beane's successful attempt to assemble a baseball team on a lean budget by employing computer-generated analysis to acquire new players.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879600/b8dmeos54ko0acvrme20.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Hangover", "English", "Comedy", 100, LocalDate.of(2009, 1, 1), "Three buddies wake up from a bachelor party in Las Vegas, with no memory of the previous night and the bachelor missing. They make their way around the city in order to find their friend before his wedding.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879602/val37fc9aur445nddwu1.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Great Beauty", "English", "Drama", 141, LocalDate.of(2013, 1, 1), "Jep Gambardella has seduced his way through the lavish nightlife of Rome for decades, but after his 65th birthday and a shock from the past, Jep looks past the nightclubs and parties to find a timeless landscape of absurd, exquisite beauty.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879605/yrefxyoqxly53bpjbljw.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Mary and Max", "English", "Animation/Comedy/Drama", 92, LocalDate.of(2009, 1, 1), "A tale of friendship between two unlikely pen pals: Mary, a lonely, eight-year-old girl living in the suburbs of Melbourne, and Max, a forty-four-year old, severely obese man living in New York.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879607/t6brr3unij48adsy9qku.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Flight", "English", "Drama/Thriller", 138, LocalDate.of(2012, 1, 1), "An airline pilot saves almost all his passengers on his malfunctioning airliner which eventually crashed, but an investigation into the accident reveals something troubling.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879610/nivoeapitjx1xvoqgo5c.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Requiem for a Dream", "English", "Drama", 102, LocalDate.of(2000, 1, 1), "The drug-induced utopias of four Coney Island people are shattered when their addictions run deep.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879614/fa9zov8h5uqpsjnbzsqy.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Truman Show", "English", "Comedy/Drama/Sci-Fi", 103, LocalDate.of(1998, 1, 1), "An insurance salesman/adjuster discovers his entire life is actually a television show.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879616/wlc684z0ryba9dxltnsd.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Artist", "English", "Comedy/Drama/Romance", 100, LocalDate.of(2011, 1, 1), "A silent movie star meets a young dancer, but the arrival of talking pictures sends their careers in opposite directions.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879619/iocxb0unuwhpy6ig0zsc.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Hobbit: The Desolation of Smaug", "English", "Adventure/Fantasy", 161, LocalDate.of(2013, 1, 1), "The dwarves, along with Bilbo Baggins and Gandalf the Grey, continue their quest to reclaim Erebor, their homeland, from Smaug. Bilbo Baggins is in possession of a mysterious and magical ring.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879621/vre70bdrthtxdjynas0i.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Vicky Cristina Barcelona", "English", "Drama/Romance", 96, LocalDate.of(2008, 1, 1), "Two girlfriends on a summer holiday in Spain become enamored with the same painter, unaware that his ex-wife, with whom he has a tempestuous relationship, is about to re-enter the picture.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879624/aedzztw6favkhd2gxqqx.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Lost in Translation", "English", "Drama", 101, LocalDate.of(2003, 1, 1), "A faded movie star and a neglected young woman form an unlikely bond after crossing paths in Tokyo.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879627/s3fn4wzg3g6weqlt4vr6.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Match Point", "English", "Drama/Romance/Thriller", 119, LocalDate.of(2005, 1, 1), "At a turning point in his life, a former tennis pro falls for an actress who happens to be dating his friend and soon-to-be brother-in-law.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879630/kyu5wpetk62xq88y6bnp.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Madagascar: Escape 2 Africa", "English", "Animation/Action/Adventure", 89, LocalDate.of(2008, 1, 1), "The animals try to fly back to New York City, but crash-land on an African wildlife refuge, where Alex is reunited with his parents.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879633/yngryt85cntbpyzmc8ma.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Downfall", "English", "Biography/Drama/History", 156, LocalDate.of(2004, 1, 1), "Traudl Junge, the final secretary for Adolf Hitler, tells of the Nazi dictator's final days in his Berlin bunker at the end of WWII.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879636/yzsju98ykwievlmlp0bx.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Madagascar", "English", "Animation/Adventure/Comedy", 86, LocalDate.of(2005, 1, 1), "Spoiled by their upbringing with no idea what wild life is really like, four animals from New York Central Zoo escape, unwittingly assisted by four absconding penguins, and find themselves in Madagascar, among a bunch of merry lemurs", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879639/ulvhn8pbrspk6w4zszfz.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Madagascar 3: Europe's Most Wanted", "English", "Animation/Adventure/Comedy", 93, LocalDate.of(2012, 1, 1), "Alex, Marty, Gloria and Melman are still fighting to get home to their beloved Big Apple. Their journey takes them through Europe where they find the perfect cover: a traveling circus, which they reinvent - Madagascar style.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879641/ema3wzdmwgyyyvtdfhzx.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "God Bless America", "English", "Comedy/Crime", 105, LocalDate.of(2011, 1, 1), "On a mission to rid society of its most repellent citizens, terminally ill Frank makes an unlikely accomplice in 16-year-old Roxy.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879644/vfjr74vwes6cqkz3pk5l.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Social Network", "English", "Biography/Drama", 120, LocalDate.of(2010, 1, 1), "Harvard student Mark Zuckerberg creates the social networking site that would become known as Facebook, but is later sued by two brothers who claimed he stole their idea, and the co-founder who was later squeezed out of the business.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879646/boj0p4effsk68pw1vwk6.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "American Gangster", "English", "Biography/Crime/Drama", 157, LocalDate.of(2007, 1, 1), "In 1970s America, a detective works to bring down the drug empire of Frank Lucas, a heroin kingpin from Manhattan, who is smuggling the drug into the country from the Far East.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879650/vz4djrbm1eyfwdhvn36y.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Catch Me If You Can", "English", "Biography/Crime/Drama", 141, LocalDate.of(2002, 1, 1), "The true story of Frank Abagnale Jr. who, before his 19th birthday, successfully conned millions of dollars' worth of checks as a Pan Am pilot, doctor, and legal prosecutor.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879653/na2zpzptrxmpbmbk2bak.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "American History X", "English", "Crime/Drama", 119, LocalDate.of(1998, 1, 1), "A former neo-nazi skinhead tries to prevent his younger brother from going down the same wrong path that he did.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879656/ut56g2z41cpuront6gmz.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Pirates of the Caribbean: At World's End", "English", "Action/Adventure/Fantasy", 169, LocalDate.of(2007, 1, 1), "Captain Barbossa, Will Turner and Elizabeth Swann must sail off the edge of the map, navigate treachery and betrayal, find Jack Sparrow, and make their final alliances for one last decisive battle.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879658/jeez7ebyq7xvieogfzd6.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Crash", "English", "Crime/Drama/Thriller", 112, LocalDate.of(2004, 1, 1), "Los Angeles citizens with vastly separate lives collide in interweaving stories of race, loss and redemption.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879661/gersx33yz0ghicz4lm5u.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Pirates of the Caribbean: The Curse of the Black Pearl", "English", "Action/Adventure/Fantasy", 143, LocalDate.of(2003, 1, 1), "Blacksmith Will Turner teams up with eccentric pirate 'Captain' Jack Sparrow to save his love, the governor's daughter, from Jack's former pirate allies, who are now undead.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879664/msgdf5glqkhwk4ju81tq.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Oldboy", "English", "Drama/Mystery/Thriller", 120, LocalDate.of(2003, 1, 1), "After being kidnapped and imprisoned for 15 years, Oh Dae-Su is released, only to find that he must find his captor in 5 days.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879667/obzwyaqtnhv15zqbkltw.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Chocolat", "English", "Drama/Romance", 121, LocalDate.of(2000, 1, 1), "A woman and her daughter open a chocolate shop in a small French village that shakes up the rigid morality of the community.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879669/wyy7qf3lwj9dg0al4zy2.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Casino Royale", "English", "Action/Adventure/Thriller", 144, LocalDate.of(2006, 1, 1), "Armed with a licence to kill, Secret Agent James Bond sets out on his first mission as 007 and must defeat a weapons dealer in a high stakes game of poker at Casino Royale, but things are not what they seem.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879673/px4oyhb6nw06w7eiwoeu.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "WALL·E", "English", "Animation/Adventure/Family", 98, LocalDate.of(2008, 1, 1), "In the distant future, a small waste-collecting robot inadvertently embarks on a space journey that will ultimately decide the fate of mankind.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879675/qvpq37b5tsbkgv8wncdj.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Wolf of Wall Street", "English", "Biography/Comedy/Crime", 180, LocalDate.of(2013, 1, 1), "Based on the true story of Jordan Belfort, from his rise to a wealthy stock-broker living the high life to his fall involving crime, corruption and the federal government.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879678/mwbqxwxxalse2zw710tv.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Hellboy II: The Golden Army", "English", "Action/Adventure/Fantasy", 120, LocalDate.of(2008, 1, 1), "The mythical world starts a rebellion against humanity in order to rule the Earth, so Hellboy and his team must save the world from the rebellious creatures.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879680/sdmgexrjxk5q0ixxfole.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "I-See-You.Com", "English", "Comedy", 92, LocalDate.of(2006, 1, 1), "A 17-year-old boy buys mini-cameras and displays the footage online at I-see-you.com. The cash rolls in as the site becomes a major hit. Everyone seems to have fun until it all comes crashing down....", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879682/sg7et661modr8ygdmszq.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Grand Budapest Hotel", "English", "Adventure/Comedy/Crime", 99, LocalDate.of(2014, 1, 1), "The adventures of Gustave H, a legendary concierge at a famous hotel from the fictional Republic of Zubrowka between the first and second World Wars, and Zero Moustafa, the lobby boy who becomes his most trusted friend.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879685/oet8jsp9z6gl6jjcys3e.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Once Upon a Time in America", "English", "Crime/Drama", 229, LocalDate.of(1984, 1, 1), "A former Prohibition-era Jewish gangster returns to the Lower East Side of Manhattan over thirty years later, where he once again must confront the ghosts and regrets of his old life.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879688/i8zspqqxzv43klj0ynv3.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Oblivion", "English", "Action/Adventure/Mystery", 124, LocalDate.of(2013, 1, 1), "A veteran assigned to extract Earth's remaining resources begins to question what he knows about his mission and himself.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879691/oklzw3mnp7nax7vsdahj.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "V for Vendetta", "English", "Action/Drama/Thriller", 132, LocalDate.of(2005, 1, 1), "In a future British tyranny, a shadowy freedom fighter, known only by the alias of 'V', plots to overthrow it with the help of a young woman.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879693/k6igaxl4gxcoshzi79wh.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Gattaca", "English", "Drama/Sci-Fi/Thriller", 106, LocalDate.of(1997, 1, 1), "A genetically inferior man assumes the identity of a superior one in order to pursue his lifelong dream of space travel.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879696/zncyo6gfpzp1mohrvdta.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Silver Linings Playbook", "English", "Comedy/Drama/Romance", 122, LocalDate.of(2012, 1, 1), "After a stint in a mental institution, former teacher Pat Solitano moves back in with his parents and tries to reconcile with his ex-wife. Things get more challenging when Pat meets Tiffany, a mysterious girl with problems of her own.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879698/tmpijhyrfvbuis0strdv.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Alice in Wonderland", "English", "Adventure/Family/Fantasy", 108, LocalDate.of(2010, 1, 1), "Nineteen-year-old Alice returns to the magical world from her childhood adventure, where she reunites with her old friends and learns of her true destiny: to end the Red Queen's reign of terror.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879701/blctidcy9yets3kuxlku.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Pacific Rim", "English", "Action/Adventure/Sci-Fi", 131, LocalDate.of(2013, 1, 1), "As a war between humankind and monstrous sea creatures wages on, a former pilot and a trainee are paired up to drive a seemingly obsolete special weapon in a desperate effort to save the world from the apocalypse.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879704/zq94wgmo9cq2urwjd3cv.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Cloud Atlas", "English", "Drama/Sci-Fi", 172, LocalDate.of(2012, 1, 1), "An exploration of how the actions of individual lives impact one another in the past, present and future, as one soul is shaped from a killer into a hero, and an act of kindness ripples across centuries to inspire a revolution.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879706/je2b63ivrv7yhzx3dti0.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Impossible", "English", "Drama/Thriller", 114, LocalDate.of(2012, 1, 1), "The story of a tourist family in Thailand caught in the destruction and chaotic aftermath of the 2004 Indian Ocean tsunami.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879709/o5rub7kx4t6utxomiayf.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "All Quiet on the Western Front", "English", "Drama/War", 136, LocalDate.of(1930, 1, 1), "A young soldier faces profound disillusionment in the soul-destroying horror of World War I.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879712/mflrdpxr7smy0rv0b3md.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Dallas Buyers Club", "English", "Biography/Drama", 117, LocalDate.of(2013, 1, 1), "In 1985 Dallas, electrician and hustler Ron Woodroof works around the system to help AIDS patients get the medication they need after he is diagnosed with the disease.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879715/egsjqcgzmcilo0vlbrpd.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "Before Sunrise", "English", "Drama/Romance", 105, LocalDate.of(1995, 1, 1), "A young man and woman meet on a train in Europe, and wind up spending one evening together in Vienna. Unfortunately, both know that this will probably be their only night together.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879718/p4gs98l77dbzcitmleo0.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        popularMovies.add(new Movie(null, "The Rum Diary", "English", "Comedy/Drama", 120, LocalDate.of(2011, 1, 1), "American journalist Paul Kemp takes on a freelance job in Puerto Rico for a local newspaper during the 1960s and struggles to find a balance between island culture and the expatriates who live there.", "https://res.cloudinary.com/dku0z3smq/image/upload/v1782879720/iaa65glpxtvjzppykwof.jpg", "https://www.youtube.com/watch?v=dQw4w9WgXcQ", null));
+        for (Movie movie : popularMovies) {
+            movieRepository.save(movie);
+        }
+
+        System.out.println("Saved " + popularMovies.size() + " movies successfully to local database!");
+    }
+
+    private void initializeShows() {
+        System.out.println("Initializing daily shows for the next 7 days...");
+        List<Movie> allMovies = movieRepository.findAll();
+        List<Screen> allScreens = screenRepository.findAll();
+
+        if (allMovies.isEmpty() || allScreens.isEmpty()) {
+            System.out.println("Missing movies or screens. Cannot initialize shows.");
+            return;
+        }
+
+        // Create shows for the first 15 movies across different screens
+        List<LocalTime> showTimes = List.of(
+                LocalTime.of(10, 0), // 10:00 AM
+                LocalTime.of(13, 30), // 01:30 PM
+                LocalTime.of(16, 45), // 04:45 PM
+                LocalTime.of(20, 0), // 08:00 PM
+                LocalTime.of(23, 0) // 11:00 PM
+        );
+
+        int count = 0;
+        Random random = new Random(42);
+
+        // Map shows across the first 15 movies, next 7 days, 2 screens each
+        for (int m = 0; m < Math.min(15, allMovies.size()); m++) {
+            Movie movie = allMovies.get(m);
+
+            for (int day = 0; day < 7; day++) {
+                LocalDate date = LocalDate.now().plusDays(day);
+
+                // Distribute across screens
+                for (int s = 0; s < 3; s++) {
+                    Screen screen = allScreens.get((m + s) % allScreens.size());
+                    LocalTime time = showTimes.get((m + day + s) % showTimes.size());
+                    BigDecimal price = BigDecimal.valueOf(150 + random.nextInt(250)); // Price between 150 and 400
+
+                    Show show = new Show(null, date, time, price, ShowStatus.ACTIVE, movie, screen);
+                    showRepository.save(show);
+                    count++;
+                }
+            }
+        }
+        System.out.println("Generated " + count + " active shows successfully!");
+    }
+}

@@ -14,4 +14,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     List<Booking> findByStatus(BookingStatus status);
     List<Booking> findByShow_ShowDateBetween(LocalDate from, LocalDate to);
     Optional<Booking> findByBookingNumber(String bookingNumber);
+
+    // Theatre-scoped queries for theatre admin isolation
+    List<Booking> findByShow_Screen_Theatre_Id(Long theatreId);
+    List<Booking> findByShow_Screen_Theatre_IdAndShow_ShowDateBetween(Long theatreId, LocalDate from, LocalDate to);
 }

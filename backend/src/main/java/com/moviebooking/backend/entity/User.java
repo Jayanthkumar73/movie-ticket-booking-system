@@ -33,6 +33,12 @@ public class User {
     // Only THEATRE_ADMIN accounts are gated on this flag.
     private Boolean approved;
 
+    // true = explicitly rejected by super admin. Can re-register or super admin can review history.
+    private Boolean rejected = Boolean.FALSE;
+
+    // Links a THEATRE_ADMIN to exactly one theatre. null for regular users and super admin.
+    private Long theatreId;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "user_roles",

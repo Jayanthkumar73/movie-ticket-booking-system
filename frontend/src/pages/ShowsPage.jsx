@@ -15,29 +15,62 @@ const ShowsPage = () => {
   const [groupedShows, setGroupedShows] = useState({});
   const [loading, setLoading] = useState(true);
 
+  // Filter: remove past dates entirely, and for today remove shows whose time has passed.
+  const filterAndGroup = (shows) => {
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+    const future = shows.filter(show => {
+      if (show.showDate < todayStr) return false;          // past date → hide
+      if (show.showDate > todayStr) return true;          // future date → always show
+      // showDate === today: only show if the showTime hasn't passed yet
+      const [h, m] = (show.showTime || '00:00').split(':').map(Number);
+      const showDT = new Date(now);
+      showDT.setHours(h, m, 0, 0);
+      return showDT > now;
+    });
+
+    return future.reduce((acc, show) => {
+      const date = show.showDate;
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(show);
+      return acc;
+    }, {});
+  };
+
   useEffect(() => {
+    let cancelled = false;
+
     const fetchData = async () => {
       try {
         const [movieRes, showsRes] = await Promise.all([
           axios.get(`/api/movies/${id}`),
           axios.get(`/api/shows/movie/${id}`)
         ]);
+        if (cancelled) return;
         setMovie(movieRes.data);
-        const shows = showsRes.data;
-        const grouped = shows.reduce((acc, show) => {
-          const date = show.showDate;
-          if (!acc[date]) acc[date] = [];
-          acc[date].push(show);
-          return acc;
-        }, {});
-        setGroupedShows(grouped);
+        setGroupedShows(filterAndGroup(showsRes.data));
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
+
     fetchData();
+
+    // Re-fetch every 30 seconds so newly expired shows disappear automatically.
+    const interval = setInterval(async () => {
+      try {
+        const showsRes = await axios.get(`/api/shows/movie/${id}`);
+        if (!cancelled) setGroupedShows(filterAndGroup(showsRes.data));
+      } catch { /* silent */ }
+    }, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [id]);
 
   if (loading) return (
@@ -119,7 +152,7 @@ const ShowsPage = () => {
                   {dateShows.sort((a, b) => a.showTime.localeCompare(b.showTime)).map(show => {
                     const cancelled = show.status === 'CANCELLED';
                     return (
-                      <Grid item xs={12} sm={6} md={4} key={show.id}>
+                      <Grid xs={12} sm={6} md={4} key={show.id}>
                         <Card sx={{
                           borderRadius: 3, transition: 'transform 0.3s, border-color 0.3s, box-shadow 0.3s',
                           '&:hover': !cancelled ? {
@@ -140,9 +173,14 @@ const ShowsPage = () => {
                                   fontWeight: 700, fontSize: '0.65rem',
                                 }} />
                             </Box>
-                            <Typography sx={{ color: NOIR.textDim, fontSize: '0.85rem', mb: 1.5 }}>
-                              {show.screen?.screenName || 'Screen'} · {show.screen?.screenType || 'REGULAR'}
-                            </Typography>
+                            <Box sx={{ mb: 1 }}>
+                              <Typography sx={{ color: NOIR.text, fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.2 }}>
+                                {show.screen?.theatre?.theatreName || 'Cinema'}
+                              </Typography>
+                              <Typography sx={{ color: NOIR.textDim, fontSize: '0.78rem', mt: 0.3 }}>
+                                {show.screen?.theatre?.city && `${show.screen.theatre.city} · `}{show.screen?.screenName || 'Screen'} · {show.screen?.screenType || 'REGULAR'}
+                              </Typography>
+                            </Box>
                             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mb: 2 }}>
                               <Typography sx={{ color: NOIR.text, fontWeight: 800, fontSize: '1.2rem' }}>₹{show.pricePerSeat}</Typography>
                               <Typography sx={{ color: NOIR.textFaint, fontSize: '0.8rem' }}>/ seat</Typography>

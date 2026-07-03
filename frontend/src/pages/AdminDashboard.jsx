@@ -205,7 +205,7 @@ const ManageMoviesTab = ({ token }) => {
     <>
     <Grid container spacing={4}>
       {/* ── OMDb import panel ───────────────────────────── */}
-      <Grid item xs={12}>
+      <Grid xs={12}>
         <Box sx={darkCard}>
           <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
             <FileDownload sx={{ color: '#4ecdc4' }} /> Search & Import from OMDb
@@ -230,7 +230,7 @@ const ManageMoviesTab = ({ token }) => {
 
           <Grid container spacing={2}>
             {omdbResults.map(r => (
-              <Grid item xs={6} sm={4} md={3} lg={2} key={r.imdbId}>
+              <Grid xs={6} sm={4} md={3} lg={2} key={r.imdbId}>
                 <Box sx={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden', bgcolor: 'rgba(0,0,0,0.2)' }}>
                   <Box sx={{ height: 220, bgcolor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {r.poster
@@ -258,7 +258,7 @@ const ManageMoviesTab = ({ token }) => {
         </Box>
       </Grid>
 
-      <Grid item xs={12} md={5}>
+      <Grid xs={12} md={5}>
         <Box sx={darkCard}>
           <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Add sx={{ color: '#E5B769' }} /> Add New Movie <Typography component="span" sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', fontWeight: 400 }}>(manual)</Typography>
@@ -289,7 +289,7 @@ const ManageMoviesTab = ({ token }) => {
           </Box>
         </Box>
       </Grid>
-      <Grid item xs={12} md={7}>
+      <Grid xs={12} md={7}>
         <Box sx={{ ...darkCard, p: 0, overflow: 'hidden' }}>
           <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', p: 3, pb: 2 }}>
             Current Movies ({movies.length})
@@ -431,7 +431,7 @@ const ManageTheatresTab = ({ token }) => {
 
   return (
     <Grid container spacing={4}>
-      <Grid item xs={12} md={5}>
+      <Grid xs={12} md={5}>
         <Box sx={darkCard}>
           <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', mb: 3 }}><Add sx={{ color: '#E5B769', mr: 1 }} />Add Theatre</Typography>
           {msg && <Alert severity="success" sx={{ mb: 2 }}>{msg}</Alert>}
@@ -452,7 +452,7 @@ const ManageTheatresTab = ({ token }) => {
           </Box>
         </Box>
       </Grid>
-      <Grid item xs={12} md={7}>
+      <Grid xs={12} md={7}>
         <Box sx={{ ...darkCard, p: 0, overflow: 'hidden' }}>
           <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', p: 3, pb: 2 }}>Theatres ({theatres.length})</Typography>
           <TableContainer>
@@ -492,8 +492,9 @@ const ManageTheatresTab = ({ token }) => {
 // ─────────────────────────────────────────────────────────
 const ManageScreensTab = ({ token }) => {
   const api = useAuthAxios(token);
+  const { theatreId } = useSelector((state) => state.auth);
   const [theatres, setTheatres] = useState([]);
-  const [selectedTheatreId, setSelectedTheatreId] = useState('');
+  const [selectedTheatreId, setSelectedTheatreId] = useState(theatreId || '');
   const [screens, setScreens] = useState([]);
   const [form, setForm] = useState({ screenName: '', totalSeats: '', screenType: 'REGULAR' });
   const [editingScreen, setEditingScreen] = useState(null);
@@ -502,21 +503,26 @@ const ManageScreensTab = ({ token }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    api.get('/theatres').then(res => setTheatres(res.data)).catch(console.error);
-  }, [api]);
-
-  const fetchScreens = useCallback(async (theatreId) => {
-    if (!theatreId) return;
+  const fetchScreens = useCallback(async (tId) => {
+    if (!tId) return;
     setLoading(true);
     try {
-      const res = await axios.get(`/api/screens?theatreId=${theatreId}`, {
+      const res = await axios.get(`/api/screens?theatreId=${tId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setScreens(res.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [token]);
+
+  useEffect(() => {
+    if (theatreId) {
+      setSelectedTheatreId(theatreId);
+      fetchScreens(theatreId);
+    } else {
+      api.get('/theatres').then(res => setTheatres(res.data)).catch(console.error);
+    }
+  }, [api, theatreId, fetchScreens]);
 
   const handleTheatreChange = (e) => {
     setSelectedTheatreId(e.target.value);
@@ -579,17 +585,19 @@ const ManageScreensTab = ({ token }) => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Grid container spacing={4}>
-        <Grid item xs={12} md={4}>
+        <Grid xs={12} md={4}>
           <Box sx={darkCard}>
             <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', mb: 3 }}>Add Screen</Typography>
 
-            <FormControl fullWidth sx={{ mb: 2, ...inputSx }}>
-              <InputLabel>Select Theatre</InputLabel>
-              <Select value={selectedTheatreId} label="Select Theatre" onChange={handleTheatreChange}
-                sx={{ color: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' } }}>
-                {theatres.map(t => <MenuItem key={t.id} value={t.id}>{t.theatreName}</MenuItem>)}
-              </Select>
-            </FormControl>
+            {!theatreId && (
+              <FormControl fullWidth sx={{ mb: 2, ...inputSx }}>
+                <InputLabel>Select Theatre</InputLabel>
+                <Select value={selectedTheatreId} label="Select Theatre" onChange={handleTheatreChange}
+                  sx={{ color: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' } }}>
+                  {theatres.map(t => <MenuItem key={t.id} value={t.id}>{t.theatreName}</MenuItem>)}
+                </Select>
+              </FormControl>
+            )}
 
             <Box component="form" onSubmit={handleAdd}>
               <TextField fullWidth margin="dense" label="Screen Name" value={form.screenName}
@@ -612,7 +620,7 @@ const ManageScreensTab = ({ token }) => {
           </Box>
         </Grid>
 
-        <Grid item xs={12} md={8}>
+        <Grid xs={12} md={8}>
           <Box sx={{ ...darkCard, p: 0, overflow: 'hidden' }}>
             <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', p: 3, pb: 2 }}>
               Screens {selectedTheatreId ? `(${screens.length})` : '— Select a theatre'}
@@ -706,31 +714,36 @@ const ManageScreensTab = ({ token }) => {
 // ─────────────────────────────────────────────────────────
 const ManageShowsTab = ({ token }) => {
   const api = useAuthAxios(token);
+  const { theatreId } = useSelector((state) => state.auth);
   const [movies, setMovies] = useState([]);
   const [theatres, setTheatres] = useState([]);
   const [screens, setScreens] = useState([]);
   const [shows, setShows] = useState([]);
   const [form, setForm] = useState({ movieId: '', screenId: '', showDate: '', showTime: '', pricePerSeat: '' });
-  const [selectedTheatreId, setSelectedTheatreId] = useState('');
+  const [selectedTheatreId, setSelectedTheatreId] = useState(theatreId || '');
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    axios.get('/api/movies').then(r => setMovies(r.data)).catch(console.error);
-    api.get('/theatres').then(r => setTheatres(r.data)).catch(console.error);
-  }, [api]);
-
-  const fetchScreensByTheatre = async (theatreId) => {
-    setSelectedTheatreId(theatreId);
+  const fetchScreensByTheatre = useCallback(async (tId) => {
+    setSelectedTheatreId(tId);
     setForm(p => ({ ...p, screenId: '' }));
-    if (!theatreId) return;
+    if (!tId) return;
     try {
-      const res = await axios.get(`/api/screens?theatreId=${theatreId}`, {
+      const res = await axios.get(`/api/screens?theatreId=${tId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setScreens(res.data);
     } catch (e) { console.error(e); }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    axios.get('/api/movies').then(r => setMovies(r.data)).catch(console.error);
+    if (theatreId) {
+      fetchScreensByTheatre(theatreId);
+    } else {
+      api.get('/theatres').then(r => setTheatres(r.data)).catch(console.error);
+    }
+  }, [api, theatreId, fetchScreensByTheatre]);
 
   const fetchShows = useCallback(async () => {
     if (!form.movieId) return;
@@ -765,7 +778,7 @@ const ManageShowsTab = ({ token }) => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Grid container spacing={4}>
-        <Grid item xs={12} md={4}>
+        <Grid xs={12} md={4}>
           <Box sx={darkCard}>
             <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', mb: 3 }}>Create Show</Typography>
             <Box component="form" onSubmit={handleSubmit}>
@@ -778,14 +791,16 @@ const ManageShowsTab = ({ token }) => {
                 </Select>
               </FormControl>
 
-              <FormControl fullWidth sx={{ mb: 1.5, ...inputSx }}>
-                <InputLabel>Theatre</InputLabel>
-                <Select value={selectedTheatreId} label="Theatre"
-                  onChange={e => fetchScreensByTheatre(e.target.value)}
-                  sx={{ color: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' } }}>
-                  {theatres.map(t => <MenuItem key={t.id} value={t.id}>{t.theatreName}</MenuItem>)}
-                </Select>
-              </FormControl>
+              {!theatreId && (
+                <FormControl fullWidth sx={{ mb: 1.5, ...inputSx }}>
+                  <InputLabel>Theatre</InputLabel>
+                  <Select value={selectedTheatreId} label="Theatre"
+                    onChange={e => fetchScreensByTheatre(e.target.value)}
+                    sx={{ color: '#fff', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' } }}>
+                    {theatres.map(t => <MenuItem key={t.id} value={t.id}>{t.theatreName}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              )}
 
               <FormControl fullWidth sx={{ mb: 1.5, ...inputSx }}>
                 <InputLabel>Screen</InputLabel>
@@ -798,10 +813,22 @@ const ManageShowsTab = ({ token }) => {
 
               <TextField fullWidth margin="dense" label="Show Date" type="date" value={form.showDate}
                 onChange={e => setForm(p => ({ ...p, showDate: e.target.value }))}
-                InputLabelProps={{ shrink: true }} required sx={inputSx} />
+                required
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{
+                  ...inputSx,
+                  '& input[type="date"]::-webkit-calendar-picker-indicator': { filter: 'invert(0.7)', cursor: 'pointer' },
+                  '& input[type="date"]': { colorScheme: 'dark' },
+                }} />
               <TextField fullWidth margin="dense" label="Show Time" type="time" value={form.showTime}
                 onChange={e => setForm(p => ({ ...p, showTime: e.target.value }))}
-                InputLabelProps={{ shrink: true }} required sx={inputSx} />
+                required
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{
+                  ...inputSx,
+                  '& input[type="time"]::-webkit-calendar-picker-indicator': { filter: 'invert(0.7)', cursor: 'pointer' },
+                  '& input[type="time"]': { colorScheme: 'dark' },
+                }} />
               <TextField fullWidth margin="dense" label="Price Per Seat (₹)" type="number" value={form.pricePerSeat}
                 onChange={e => setForm(p => ({ ...p, pricePerSeat: e.target.value }))} required sx={inputSx} />
 
@@ -813,7 +840,7 @@ const ManageShowsTab = ({ token }) => {
           </Box>
         </Grid>
 
-        <Grid item xs={12} md={8}>
+        <Grid xs={12} md={8}>
           <Box sx={{ ...darkCard, p: 0, overflow: 'hidden' }}>
             <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', p: 3, pb: 2 }}>
               Shows {form.movieId ? `for selected movie (${shows.length})` : '— Select a movie to view shows'}
@@ -893,7 +920,7 @@ const ManageBookingsTab = ({ token }) => {
           { label: 'Cancelled', value: bookings.filter(b => b.status === 'CANCELLED').length, color: '#c0392b' },
           { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, color: '#F5C518' },
         ].map(stat => (
-          <Grid item xs={6} md={3} key={stat.label}>
+          <Grid xs={6} md={3} key={stat.label}>
             <Box sx={{ ...darkCard, textAlign: 'center', p: 2 }}>
               <Typography variant="h4" fontWeight={900} sx={{ color: stat.color }}>{stat.value}</Typography>
               <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', mt: 0.5 }}>{stat.label}</Typography>
@@ -1088,7 +1115,7 @@ const ReportsTab = ({ token }) => {
               { label: 'Cancelled', value: reportData.cancelledBookings, color: '#c0392b', icon: '❌' },
               { label: 'Net Bookings', value: (reportData.totalBookings || 0) - (reportData.cancelledBookings || 0), color: '#F5C518', icon: '✅' },
             ].map(s => (
-              <Grid item xs={6} md={3} key={s.label}>
+              <Grid xs={6} md={3} key={s.label}>
                 <Box sx={{ ...darkCard, textAlign: 'center', p: 2.5 }}>
                   <Typography sx={{ fontSize: '2rem', mb: 0.5 }}>{s.icon}</Typography>
                   <Typography variant="h4" fontWeight={900} sx={{ color: s.color }}>{s.value}</Typography>
@@ -1172,60 +1199,171 @@ const ReportsTab = ({ token }) => {
 };
 
 // ─────────────────────────────────────────────────────────
-// TAB 6: Approve Admins (SUPER_ADMIN)
+// TAB: Approve Admins (SUPER_ADMIN only) — with Reject + History
 // ─────────────────────────────────────────────────────────
 const ApproveAdminsTab = ({ token }) => {
-  const [pendingUsers, setPendingUsers] = useState([]);
+  const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
+  const [msgType, setMsgType] = useState('info');
+  const [filter, setFilter] = useState('PENDING');
 
-  useEffect(() => {
-    axios.get('/api/admin/pending', {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(r => { setPendingUsers(r.data); setLoading(false); })
-      .catch(() => setLoading(false));
+  const fetchAdmins = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get('/api/admin/pending', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAdmins(res.data);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
   }, [token]);
+
+  useEffect(() => { fetchAdmins(); }, [fetchAdmins]);
 
   const approve = async (userId) => {
     try {
       await axios.put(`/api/admin/approve/${userId}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setMsg('Admin approved!');
-      setPendingUsers(prev => prev.filter(u => u.id !== userId));
+      setMsg('Admin approved! They can now login to the Theatre Admin dashboard.');
+      setMsgType('success');
+      fetchAdmins();
     } catch (err) {
       setMsg(err.response?.data?.message || 'Failed to approve');
+      setMsgType('error');
     }
+  };
+
+  const reject = async (userId) => {
+    if (!window.confirm('Are you sure you want to reject this admin? They will not be able to login.')) return;
+    try {
+      await axios.put(`/api/admin/reject/${userId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setMsg('Admin rejected. They cannot login until re-approved.');
+      setMsgType('warning');
+      fetchAdmins();
+    } catch (err) {
+      setMsg(err.response?.data?.message || 'Failed to reject');
+      setMsgType('error');
+    }
+  };
+
+  const statusColor = (status) => {
+    if (status === 'APPROVED') return { bg: 'rgba(86,171,47,0.18)', text: '#56ab2f', border: 'rgba(86,171,47,0.4)' };
+    if (status === 'REJECTED') return { bg: 'rgba(192,57,43,0.18)', text: '#e74c3c', border: 'rgba(192,57,43,0.4)' };
+    return { bg: 'rgba(229,183,105,0.18)', text: '#E5B769', border: 'rgba(229,183,105,0.4)' };
+  };
+
+  const filtered = filter === 'ALL' ? admins : admins.filter(u => u.status === filter);
+  const counts = {
+    ALL: admins.length,
+    PENDING: admins.filter(u => u.status === 'PENDING').length,
+    APPROVED: admins.filter(u => u.status === 'APPROVED').length,
+    REJECTED: admins.filter(u => u.status === 'REJECTED').length,
   };
 
   if (loading) return <Box display="flex" justifyContent="center" p={4}><CircularProgress sx={{ color: '#E5B769' }} /></Box>;
 
   return (
     <Box>
-      {msg && <Alert severity="info" sx={{ mb: 2 }} onClose={() => setMsg('')}>{msg}</Alert>}
-      <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', mb: 3 }}>
-        Pending Admin Approvals ({pendingUsers.length})
-      </Typography>
-      {pendingUsers.length === 0 ? (
-        <Box sx={{ ...darkCard, textAlign: 'center', py: 6 }}>
-          <Typography sx={{ color: 'rgba(255,255,255,0.5)' }}>No pending approvals.</Typography>
+      {msg && (
+        <Alert severity={msgType} sx={{ mb: 3 }} onClose={() => setMsg('')}>
+          {msg}
+        </Alert>
+      )}
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h6" fontWeight={700} sx={{ color: '#fff' }}>
+          Theatre Admin Management
+        </Typography>
+        <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
+          Total: {admins.length} admins registered
+        </Typography>
+      </Box>
+
+      {/* Status filter tabs */}
+      <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
+        {['ALL', 'PENDING', 'APPROVED', 'REJECTED'].map(f => (
+          <Chip key={f} label={`${f} (${counts[f]})`} onClick={() => setFilter(f)}
+            sx={{
+              cursor: 'pointer',
+              bgcolor: filter === f ? statusColor(f === 'ALL' ? 'PENDING' : f).bg : 'rgba(255,255,255,0.06)',
+              color: filter === f ? statusColor(f === 'ALL' ? 'PENDING' : f).text : 'rgba(255,255,255,0.5)',
+              border: `1px solid ${filter === f ? statusColor(f === 'ALL' ? 'PENDING' : f).border : 'rgba(255,255,255,0.1)'}`,
+              fontWeight: filter === f ? 700 : 400,
+            }}
+          />
+        ))}
+      </Box>
+
+      {filtered.length === 0 ? (
+        <Box sx={{ ...darkCard, textAlign: 'center', py: 8 }}>
+          <AdminPanelSettings sx={{ fontSize: 56, color: 'rgba(255,255,255,0.15)', mb: 2 }} />
+          <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '1rem' }}>
+            {filter === 'PENDING' ? 'No pending approvals. All caught up! 🎉' : `No ${filter.toLowerCase()} admins.`}
+          </Typography>
         </Box>
       ) : (
         <Grid container spacing={2}>
-          {pendingUsers.map(u => (
-            <Grid item xs={12} md={6} key={u.id}>
-              <Box sx={{ ...darkCard, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                  <Typography sx={{ color: '#fff', fontWeight: 700 }}>{u.username || u.email}</Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem' }}>{u.email}</Typography>
+          {filtered.map(u => {
+            const sc = statusColor(u.status);
+            return (
+              <Grid xs={12} md={6} key={u.id}>
+                <Box sx={{
+                  ...darkCard,
+                  border: `1px solid ${sc.border}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2,
+                  flexWrap: 'wrap'
+                }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+                      <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '1rem' }}>
+                        {u.name}
+                      </Typography>
+                      <Chip label={u.status} size="small"
+                        sx={{ bgcolor: sc.bg, color: sc.text, fontWeight: 700, fontSize: '0.7rem', height: 22 }}
+                      />
+                    </Box>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem' }}>
+                      {u.email}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                    {u.status === 'PENDING' && (
+                      <>
+                        <Button variant="contained" size="small" onClick={() => approve(u.id)}
+                          sx={{ background: 'linear-gradient(45deg, #56ab2f, #a8e063)', color: '#000', fontWeight: 700, minWidth: 90 }}>
+                          ✓ Approve
+                        </Button>
+                        <Button variant="outlined" size="small" onClick={() => reject(u.id)}
+                          sx={{ borderColor: '#e74c3c', color: '#e74c3c', fontWeight: 700, minWidth: 80, '&:hover': { bgcolor: 'rgba(231,76,60,0.1)' } }}>
+                          ✕ Reject
+                        </Button>
+                      </>
+                    )}
+                    {u.status === 'APPROVED' && (
+                      <Button variant="outlined" size="small" onClick={() => reject(u.id)}
+                        sx={{ borderColor: '#e74c3c', color: '#e74c3c', fontWeight: 700, '&:hover': { bgcolor: 'rgba(231,76,60,0.1)' } }}>
+                        Revoke Access
+                      </Button>
+                    )}
+                    {u.status === 'REJECTED' && (
+                      <Button variant="outlined" size="small" onClick={() => approve(u.id)}
+                        sx={{ borderColor: '#56ab2f', color: '#56ab2f', fontWeight: 700, '&:hover': { bgcolor: 'rgba(86,171,47,0.1)' } }}>
+                        Re-Approve
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
-                <Button variant="contained" onClick={() => approve(u.id)}
-                  sx={{ background: 'linear-gradient(45deg, #56ab2f, #a8e063)', color: '#000', fontWeight: 700 }}>
-                  Approve
-                </Button>
-              </Box>
-            </Grid>
-          ))}
+              </Grid>
+            );
+          })}
         </Grid>
       )}
     </Box>
@@ -1233,25 +1371,41 @@ const ApproveAdminsTab = ({ token }) => {
 };
 
 // ─────────────────────────────────────────────────────────
-// MAIN AdminDashboard
+// MAIN AdminDashboard — role-separated tabs
 // ─────────────────────────────────────────────────────────
 const AdminDashboard = () => {
   const { token, roles } = useSelector((state) => state.auth);
   const isSuperAdmin = roles?.includes('ROLE_SUPER_ADMIN');
   const isTheatreAdmin = roles?.includes('ROLE_THEATRE_ADMIN');
 
-  // Build tab config based on roles
-  const tabs = [
-    { label: 'Movies', icon: <Movie />, show: isTheatreAdmin || isSuperAdmin, component: <ManageMoviesTab token={token} /> },
-    { label: 'Theatres', icon: <Business />, show: isTheatreAdmin || isSuperAdmin, component: <ManageTheatresTab token={token} /> },
-    { label: 'Screens', icon: <Theaters />, show: isTheatreAdmin || isSuperAdmin, component: <ManageScreensTab token={token} /> },
-    { label: 'Shows', icon: <EventSeat />, show: isTheatreAdmin || isSuperAdmin, component: <ManageShowsTab token={token} /> },
-    { label: 'Bookings', icon: <BookOnline />, show: isTheatreAdmin || isSuperAdmin, component: <ManageBookingsTab token={token} /> },
-    { label: 'Reports', icon: <Assessment />, show: isTheatreAdmin || isSuperAdmin, component: <ReportsTab token={token} /> },
-    { label: 'Approve Admins', icon: <AdminPanelSettings />, show: isSuperAdmin, component: <ApproveAdminsTab token={token} /> },
-  ].filter(t => t.show);
+  // Super Admin sees: Bookings, Reports, Approve Admins
+  // Theatre Admin sees: Movies, Screens, Shows, Bookings, Reports (NO Theatres tab)
+  const tabs = isSuperAdmin ? [
+    { label: 'Bookings', icon: <BookOnline />, component: <ManageBookingsTab token={token} /> },
+    { label: 'Reports', icon: <Assessment />, component: <ReportsTab token={token} /> },
+    { label: 'Approve Admins', icon: <AdminPanelSettings />, component: <ApproveAdminsTab token={token} /> },
+  ] : isTheatreAdmin ? [
+    { label: 'Movies', icon: <Movie />, component: <ManageMoviesTab token={token} /> },
+    { label: 'Screens', icon: <Theaters />, component: <ManageScreensTab token={token} /> },
+    { label: 'Shows', icon: <EventSeat />, component: <ManageShowsTab token={token} /> },
+    { label: 'Bookings', icon: <BookOnline />, component: <ManageBookingsTab token={token} /> },
+    { label: 'Reports', icon: <Assessment />, component: <ReportsTab token={token} /> },
+  ] : [];
 
   const [tabIndex, setTabIndex] = useState(0);
+  const [theatreName, setTheatreName] = useState('');
+
+  // Fetch theatre name for theatre admins
+  const { theatreId } = useSelector((state) => state.auth);
+  useEffect(() => {
+    if (isTheatreAdmin && theatreId) {
+      axios.get(`/api/theatres/${theatreId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(res => setTheatreName(res.data.theatreName || '')).catch(() => {});
+    }
+  }, [isTheatreAdmin, theatreId, token]);
+
+  const dashboardTitle = isSuperAdmin ? '👑 Super Admin Dashboard' : '⚙️ Theatre Admin Dashboard';
 
   return (
     <Box sx={{ minHeight: '100vh', background: 'radial-gradient(1200px 620px at 50% -12%, rgba(229,183,105,0.10), transparent 60%), #0a0a0b', py: 4 }}>
@@ -1262,8 +1416,31 @@ const AdminDashboard = () => {
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
         }}>
-          ⚙️ Admin Dashboard
+          {dashboardTitle}
         </Typography>
+
+        {/* Theatre Admin: show their assigned theatre as a prominent banner */}
+        {isTheatreAdmin && theatreName && (
+          <Box sx={{
+            mb: 3, px: 3, py: 2,
+            background: 'linear-gradient(135deg, rgba(229,183,105,0.12) 0%, rgba(201,146,47,0.08) 100%)',
+            border: '1px solid rgba(229,183,105,0.35)',
+            borderRadius: 3,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+          }}>
+            <Business sx={{ color: '#E5B769', fontSize: 22 }} />
+            <Box>
+              <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                Your Assigned Theatre
+              </Typography>
+              <Typography sx={{ color: '#E5B769', fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.02em' }}>
+                {theatreName}
+              </Typography>
+            </Box>
+          </Box>
+        )}
 
         <Box sx={{ borderBottom: 1, borderColor: 'rgba(255,255,255,0.12)', mb: 4 }}>
           <Tabs
@@ -1293,3 +1470,4 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+

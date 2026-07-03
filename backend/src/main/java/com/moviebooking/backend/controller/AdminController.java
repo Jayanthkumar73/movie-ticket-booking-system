@@ -20,36 +20,60 @@ public class AdminController {
     @Autowired
     private UserRepository userRepository;
 
-    private boolean isPendingTheatreAdmin(User user) {
-        boolean isTheatreAdmin = user.getRoles().stream()
-                .anyMatch(r -> "ROLE_THEATRE_ADMIN".equals(r.getRoleName()));
-        return isTheatreAdmin && Boolean.FALSE.equals(user.getApproved());
+    private boolean isTheatreAdmin(User user) {
+        return user.getRoles().stream().anyMatch(r -> "ROLE_THEATRE_ADMIN".equals(r.getRoleName()));
     }
 
+    /** Maps a theatre-admin User to a safe DTO with status. */
+    private Map<String, Object> toDto(User u) {
+        String status;
+        if (Boolean.TRUE.equals(u.getRejected())) {
+            status = "REJECTED";
+        } else if (Boolean.TRUE.equals(u.getApproved())) {
+            status = "APPROVED";
+        } else {
+            status = "PENDING";
+        }
+        java.util.Map<String, Object> dto = new java.util.LinkedHashMap<>();
+        dto.put("id", u.getId());
+        dto.put("name", u.getName());
+        dto.put("email", u.getEmail());
+        dto.put("status", status);
+        dto.put("theatreId", u.getTheatreId());
+        return dto;
+    }
+
+    /** Returns ALL theatre-admin accounts (pending + approved + rejected) so super admin can see the full history. */
     @GetMapping("/pending")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<List<Map<String, Object>>> getPendingAdmins() {
-        List<Map<String, Object>> pending = userRepository.findAll().stream()
-                .filter(this::isPendingTheatreAdmin)
-                .map(u -> Map.<String, Object>of(
-                        "id", u.getId(),
-                        "name", u.getName(),
-                        "username", u.getName(),
-                        "email", u.getEmail()
-                ))
+    public ResponseEntity<List<Map<String, Object>>> getAllTheatreAdmins() {
+        List<Map<String, Object>> admins = userRepository.findAll().stream()
+                .filter(this::isTheatreAdmin)
+                .map(this::toDto)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(pending);
+        return ResponseEntity.ok(admins);
     }
 
     @PutMapping("/approve/{userId}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<?> approveAdmin(@PathVariable Long userId) {
         User user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
-        }
+        if (user == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
         user.setApproved(Boolean.TRUE);
+        user.setRejected(Boolean.FALSE);
         userRepository.save(user);
         return ResponseEntity.ok(Map.of("message", "Admin approved", "id", userId));
     }
+
+    @PutMapping("/reject/{userId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<?> rejectAdmin(@PathVariable Long userId) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+        user.setApproved(Boolean.FALSE);
+        user.setRejected(Boolean.TRUE);
+        userRepository.save(user);
+        return ResponseEntity.ok(Map.of("message", "Admin rejected", "id", userId));
+    }
 }
+

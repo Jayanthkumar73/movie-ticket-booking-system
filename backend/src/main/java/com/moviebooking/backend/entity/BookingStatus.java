@@ -1,5 +1,5 @@
 package com.moviebooking.backend.entity;
 
 public enum BookingStatus {
-    CONFIRMED, CANCELLED
+    PENDING, CONFIRMED, CANCELLED
 }

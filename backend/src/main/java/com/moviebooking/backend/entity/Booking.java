@@ -43,4 +43,7 @@ public class Booking {
     @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnore
     private User user;
+
+    private String razorpayOrderId;
+    private String razorpayPaymentId;
 }

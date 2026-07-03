@@ -18,6 +18,7 @@ const Navbar = () => {
   };
 
   const isAdmin = roles.includes('ROLE_ADMIN') || roles.includes('ROLE_SUPER_ADMIN') || roles.includes('ROLE_THEATRE_ADMIN');
+  const isSuperAdmin = roles.includes('ROLE_SUPER_ADMIN');
   const isActive = (path) => location.pathname === path || (path === '/movies' && location.pathname === '/');
 
   const navLink = (active) => ({
@@ -71,8 +72,8 @@ const Navbar = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Button component={Link} to="/movies" sx={navLink(isActive('/movies'))}>Movies</Button>
-          {isAuthenticated && (
+          {!isSuperAdmin && <Button component={Link} to="/movies" sx={navLink(isActive('/movies'))}>Movies</Button>}
+          {isAuthenticated && !isSuperAdmin && (
             <Button component={Link} to="/bookings" startIcon={<ConfirmationNumberIcon sx={{ fontSize: 18 }} />} sx={navLink(isActive('/bookings'))}>
               My Bookings
             </Button>

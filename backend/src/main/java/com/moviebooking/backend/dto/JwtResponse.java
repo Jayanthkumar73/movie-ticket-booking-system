@@ -1,6 +1,5 @@
 package com.moviebooking.backend.dto;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.List;
@@ -12,6 +11,7 @@ public class JwtResponse {
     private String email;
     private List<String> roles;
     private Long userId;
+    private Long theatreId;
 
     public JwtResponse(String token, String email, List<String> roles) {
         this.token = token;
@@ -25,5 +25,12 @@ public class JwtResponse {
         this.roles = roles;
         this.userId = userId;
     }
-}
 
+    public JwtResponse(String token, String email, List<String> roles, Long userId, Long theatreId) {
+        this.token = token;
+        this.email = email;
+        this.roles = roles;
+        this.userId = userId;
+        this.theatreId = theatreId;
+    }
+}

@@ -98,7 +98,7 @@ const BookingHistoryPage = () => {
               .map(booking => {
                 const isCancelled = booking.status === 'CANCELLED';
                 return (
-                  <Grid item xs={12} md={6} key={booking.id}>
+                  <Grid xs={12} md={6} key={booking.id}>
                     <Card sx={{
                       borderRadius: 4, borderColor: isCancelled ? 'rgba(229,72,77,0.35)' : NOIR.border,
                       bgcolor: isCancelled ? 'rgba(229,72,77,0.05)' : NOIR.surface,

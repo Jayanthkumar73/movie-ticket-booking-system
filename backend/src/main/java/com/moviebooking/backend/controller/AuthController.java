@@ -74,12 +74,17 @@ public class AuthController {
         String email = loginRequest.getEmail();
         
         if ("jayanthkumarsamatham@gmail.com".equals(email) && "jayanthkumarsamatham".equals(loginRequest.getPassword())) {
-            roles = List.of("ROLE_SUPER_ADMIN");
-            authentication = new UsernamePasswordAuthenticationToken(email, null,
-                roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList()));
-            // Super admin bypasses OTP and logs in directly.
-            String jwt = jwtUtils.generateJwtToken(authentication);
-            return ResponseEntity.ok(new JwtResponse(jwt, email, roles, null));
+            // Super admin password check passed — now send OTP to their email like any admin.
+            String otp = String.format("%06d", new Random().nextInt(999999));
+            OtpVerification otpEntity = new OtpVerification();
+            otpEntity.setEmail(email);
+            otpEntity.setOtp(otp);
+            otpEntity.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+            otpRepository.deleteByEmail(email);
+            otpRepository.save(otpEntity);
+            // Send OTP only to super admin's own email (they ARE the super admin)
+            emailService.sendOtpEmail(email, email, otp);
+            return ResponseEntity.ok(Map.of("requiresOtp", true, "email", email));
         } else {
             try {
                 authentication = authenticationManager.authenticate(
@@ -93,29 +98,31 @@ public class AuthController {
                     .map(GrantedAuthority::getAuthority)
                     .collect(Collectors.toList());
 
-            // Block theatre admins whose account is still pending super-admin approval.
-            // (approved == null means a legacy account created before approvals existed.)
+            // Block theatre admins whose account is pending or rejected.
             if (roles.contains("ROLE_THEATRE_ADMIN")) {
                 User account = userRepository.findByEmail(email).orElse(null);
+                if (account != null && Boolean.TRUE.equals(account.getRejected())) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body("Your admin account has been rejected by the super admin. Please contact support.");
+                }
                 if (account != null && Boolean.FALSE.equals(account.getApproved())) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
                             .body("Your admin account is pending approval by a super admin.");
                 }
             }
-        }
 
-        if (roles.contains("ROLE_THEATRE_ADMIN") || roles.contains("ROLE_SUPER_ADMIN")) {
-            String otp = String.format("%06d", new Random().nextInt(999999));
-            OtpVerification otpEntity = new OtpVerification();
-            otpEntity.setEmail(email);
-            otpEntity.setOtp(otp);
-            otpEntity.setExpiryTime(LocalDateTime.now().plusMinutes(5));
-            otpRepository.deleteByEmail(email);
-            otpRepository.save(otpEntity);
-            
-            emailService.sendOtpEmail(email, superAdminEmail, otp);
-            
-            return ResponseEntity.ok(Map.of("requiresOtp", true, "email", email));
+            // Theatre admins also need OTP
+            if (roles.contains("ROLE_THEATRE_ADMIN")) {
+                String otp = String.format("%06d", new Random().nextInt(999999));
+                OtpVerification otpEntity = new OtpVerification();
+                otpEntity.setEmail(email);
+                otpEntity.setOtp(otp);
+                otpEntity.setExpiryTime(LocalDateTime.now().plusMinutes(5));
+                otpRepository.deleteByEmail(email);
+                otpRepository.save(otpEntity);
+                emailService.sendOtpEmail(email, superAdminEmail, otp);
+                return ResponseEntity.ok(Map.of("requiresOtp", true, "email", email));
+            }
         }
 
         String jwt = jwtUtils.generateJwtToken(authentication);
@@ -154,7 +161,9 @@ public class AuthController {
         String jwt = jwtUtils.generateJwtToken(authentication);
         Long userId = authentication.getPrincipal() instanceof UserDetailsImpl ?
             ((UserDetailsImpl)authentication.getPrincipal()).getId() : null;
-        return ResponseEntity.ok(new JwtResponse(jwt, email, roles, userId));
+        Long theatreId = authentication.getPrincipal() instanceof UserDetailsImpl ?
+            ((UserDetailsImpl)authentication.getPrincipal()).getTheatreId() : null;
+        return ResponseEntity.ok(new JwtResponse(jwt, email, roles, userId, theatreId));
     }
 
     @PostMapping("/register")
@@ -186,7 +195,21 @@ public class AuthController {
         user.setRoles(roles);
         // Theatre admins must be approved by a super admin before they can log in.
         user.setApproved(isAdmin ? Boolean.FALSE : Boolean.TRUE);
+        user.setRejected(Boolean.FALSE);
+        // Link admin to their theatre
+        if (isAdmin && signUpRequest.getTheatreId() != null) {
+            user.setTheatreId(signUpRequest.getTheatreId());
+        }
         userRepository.save(user);
+
+        // Notify super admin about new admin registration request
+        if (isAdmin) {
+            try {
+                emailService.sendNewAdminRegistrationNotification(superAdminEmail, signUpRequest.getName(), signUpRequest.getEmail());
+            } catch (Exception e) {
+                // non-critical: don't fail registration if email fails
+            }
+        }
 
         return new ResponseEntity<>("User registered successfully!", HttpStatus.CREATED);
     }
