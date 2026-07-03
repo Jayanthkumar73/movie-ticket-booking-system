@@ -89,7 +89,7 @@ npm run dev
 ---
 
 ## 👥 Seeded Theatre Admin Accounts
-Use these pre-configured theatre owner accounts to test scoped administrative functionality (Password for all accounts is `1234`):
+Use these pre-configured theatre owner accounts to test scoped administrative functionality:
 
 1.  **PVR Forum Mall:** `s.jayanthbhai1@gmail.com`
 2.  **Prasads Multiplex:** `s.jayanthkumar1234@gmail.com`
