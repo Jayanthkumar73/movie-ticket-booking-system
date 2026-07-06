@@ -71,9 +71,9 @@ public class DatabaseInitializer implements CommandLineRunner {
             Theatre savedTheatre = theatreRepository.save(theatre);
 
             // Add screens to theatre
-            Screen screen1 = new Screen(null, "Screen 1 - IMAX", 100, ScreenType.IMAX, savedTheatre);
-            Screen screen2 = new Screen(null, "Screen 2 - PREMIUM", 80, ScreenType.PREMIUM, savedTheatre);
-            Screen screen3 = new Screen(null, "Screen 3 - REGULAR", 60, ScreenType.REGULAR, savedTheatre);
+            Screen screen1 = new Screen(null, "Screen 1 - IMAX", 100, ScreenType.IMAX, savedTheatre, new ArrayList<>());
+            Screen screen2 = new Screen(null, "Screen 2 - PREMIUM", 80, ScreenType.PREMIUM, savedTheatre, new ArrayList<>());
+            Screen screen3 = new Screen(null, "Screen 3 - REGULAR", 60, ScreenType.REGULAR, savedTheatre, new ArrayList<>());
 
             screenRepository.save(screen1);
             screenRepository.save(screen2);

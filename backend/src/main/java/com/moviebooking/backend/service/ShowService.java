@@ -3,6 +3,7 @@ package com.moviebooking.backend.service;
 import com.moviebooking.backend.dto.SeatInfoDTO;
 import com.moviebooking.backend.entity.*;
 import com.moviebooking.backend.repository.*;
+import com.moviebooking.backend.util.SeatLayoutUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -73,7 +74,8 @@ public class ShowService {
                 show.getScreen().getTotalSeats(),
                 bookedSeats,
                 show.getPricePerSeat(),
-                show.getScreen().getScreenType().name()
+                show.getScreen().getScreenType().name(),
+                SeatLayoutUtil.buildBands(show.getScreen())
         );
     }
 }

@@ -3,7 +3,8 @@ import {
   Container, Typography, Box, Tabs, Tab, Button, TextField, Paper,
   Grid, Select, MenuItem, FormControl, InputLabel, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Chip, CircularProgress,
-  IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Alert
+  IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Alert,
+  FormControlLabel, Checkbox
 } from '@mui/material';
 import {
   Add, Edit, Delete, FileDownload, PictureAsPdf, Assessment,
@@ -496,7 +497,7 @@ const ManageScreensTab = ({ token }) => {
   const [theatres, setTheatres] = useState([]);
   const [selectedTheatreId, setSelectedTheatreId] = useState(theatreId || '');
   const [screens, setScreens] = useState([]);
-  const [form, setForm] = useState({ screenName: '', totalSeats: '', screenType: 'REGULAR' });
+  const [form, setForm] = useState({ screenName: '', totalSeats: '', screenType: 'REGULAR', categories: [] });
   const [editingScreen, setEditingScreen] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [msg, setMsg] = useState('');
@@ -529,17 +530,54 @@ const ManageScreensTab = ({ token }) => {
     fetchScreens(e.target.value);
   };
 
+  // ── Seat-category editor helpers (optional price tiers per screen) ──
+  const addCategory = () => setForm(p => ({
+    ...p,
+    categories: [...p.categories, { name: '', price: '', numRows: '', seatsPerRow: '', bestseller: false }],
+  }));
+  const updateCategory = (idx, field, value) => setForm(p => ({
+    ...p,
+    categories: p.categories.map((c, i) => (i === idx ? { ...c, [field]: value } : c)),
+  }));
+  const removeCategory = (idx) => setForm(p => ({
+    ...p,
+    categories: p.categories.filter((_, i) => i !== idx),
+  }));
+
+  // Rows sum across categories, capped at 26 (single-letter rows A–Z).
+  const categoryRowTotal = form.categories.reduce((n, c) => n + (Number(c.numRows) || 0), 0);
+  const categorySeatTotal = form.categories.reduce((n, c) => n + (Number(c.numRows) || 0) * (Number(c.seatsPerRow) || 0), 0);
+
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!selectedTheatreId) { setError('Please select a theatre first.'); return; }
+    const useCategories = form.categories.length > 0;
+    if (useCategories && categoryRowTotal > 26) {
+      setError('Total rows across categories cannot exceed 26 (rows A–Z).');
+      return;
+    }
     try {
-      await axios.post(`/api/screens?theatreId=${selectedTheatreId}`,
-        { screenName: form.screenName, totalSeats: Number(form.totalSeats), screenType: form.screenType },
+      const payload = useCategories
+        ? {
+            screenName: form.screenName,
+            screenType: form.screenType,
+            categories: form.categories.map((c, i) => ({
+              name: c.name,
+              price: Number(c.price),
+              numRows: Number(c.numRows),
+              seatsPerRow: Number(c.seatsPerRow),
+              displayOrder: i,
+              bestseller: c.bestseller,
+            })),
+          }
+        : { screenName: form.screenName, totalSeats: Number(form.totalSeats), screenType: form.screenType };
+
+      await axios.post(`/api/screens?theatreId=${selectedTheatreId}`, payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setMsg('Screen added!');
       setError('');
-      setForm({ screenName: '', totalSeats: '', screenType: 'REGULAR' });
+      setForm({ screenName: '', totalSeats: '', screenType: 'REGULAR', categories: [] });
       fetchScreens(selectedTheatreId);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to add screen');
@@ -554,8 +592,20 @@ const ManageScreensTab = ({ token }) => {
 
   const handleUpdate = async (screenId) => {
     try {
-      await axios.put(`/api/screens/${screenId}`,
-        { screenName: editForm.screenName, totalSeats: Number(editForm.totalSeats), screenType: editForm.screenType },
+      // Preserve existing seat categories on edit so this inline form doesn't wipe the price tiers.
+      const existing = screens.find(s => s.id === screenId);
+      const cats = existing?.seatCategories || [];
+      const payload = cats.length > 0
+        ? {
+            screenName: editForm.screenName,
+            screenType: editForm.screenType,
+            categories: cats.map(c => ({
+              name: c.name, price: Number(c.price), numRows: c.numRows,
+              seatsPerRow: c.seatsPerRow, displayOrder: c.displayOrder, bestseller: c.bestseller,
+            })),
+          }
+        : { screenName: editForm.screenName, totalSeats: Number(editForm.totalSeats), screenType: editForm.screenType };
+      await axios.put(`/api/screens/${screenId}`, payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setEditingScreen(null);
@@ -602,8 +652,11 @@ const ManageScreensTab = ({ token }) => {
             <Box component="form" onSubmit={handleAdd}>
               <TextField fullWidth margin="dense" label="Screen Name" value={form.screenName}
                 onChange={e => setForm(p => ({ ...p, screenName: e.target.value }))} required sx={inputSx} />
-              <TextField fullWidth margin="dense" label="Total Seats" type="number" value={form.totalSeats}
-                onChange={e => setForm(p => ({ ...p, totalSeats: e.target.value }))} required sx={inputSx} />
+              <TextField fullWidth margin="dense"
+                label={form.categories.length > 0 ? `Total Seats (auto: ${categorySeatTotal})` : 'Total Seats'}
+                type="number" value={form.categories.length > 0 ? categorySeatTotal : form.totalSeats}
+                onChange={e => setForm(p => ({ ...p, totalSeats: e.target.value }))}
+                required={form.categories.length === 0} disabled={form.categories.length > 0} sx={inputSx} />
               <FormControl fullWidth sx={{ mt: 1, mb: 1, ...inputSx }}>
                 <InputLabel>Screen Type</InputLabel>
                 <Select value={form.screenType} label="Screen Type"
@@ -612,6 +665,55 @@ const ManageScreensTab = ({ token }) => {
                   {['REGULAR', 'PREMIUM', 'IMAX'].map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </Select>
               </FormControl>
+
+              {/* Optional price tiers (BookMyShow-style seat categories) */}
+              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontWeight: 700, fontSize: '0.85rem' }}>
+                    Seat Categories (optional)
+                  </Typography>
+                  <Button size="small" onClick={addCategory} sx={{ color: '#E5B769', fontWeight: 700, minWidth: 0 }}>
+                    + Add
+                  </Button>
+                </Box>
+                <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', mb: 1.5 }}>
+                  Add tiers (e.g. CLASSIC ₹160, EXECUTIVE ₹190). First tier sits nearest the screen. Leave empty for a single-price screen.
+                </Typography>
+
+                {form.categories.map((c, idx) => (
+                  <Box key={idx} sx={{ p: 1.5, mb: 1.5, borderRadius: 2, border: '1px solid rgba(255,255,255,0.12)', bgcolor: 'rgba(255,255,255,0.03)' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.72rem', fontWeight: 700 }}>
+                        Tier {idx + 1}
+                      </Typography>
+                      <Button size="small" onClick={() => removeCategory(idx)} sx={{ color: '#E5484D', minWidth: 0, fontSize: '0.7rem' }}>
+                        Remove
+                      </Button>
+                    </Box>
+                    <TextField fullWidth margin="dense" size="small" label="Name (e.g. CLASSIC)" value={c.name}
+                      onChange={e => updateCategory(idx, 'name', e.target.value)} required sx={inputSx} />
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <TextField margin="dense" size="small" label="Price ₹" type="number" value={c.price}
+                        onChange={e => updateCategory(idx, 'price', e.target.value)} required sx={inputSx} />
+                      <TextField margin="dense" size="small" label="Rows" type="number" value={c.numRows}
+                        onChange={e => updateCategory(idx, 'numRows', e.target.value)} required sx={inputSx} />
+                      <TextField margin="dense" size="small" label="Seats/Row" type="number" value={c.seatsPerRow}
+                        onChange={e => updateCategory(idx, 'seatsPerRow', e.target.value)} required sx={inputSx} />
+                    </Box>
+                    <FormControlLabel
+                      control={<Checkbox checked={c.bestseller} onChange={e => updateCategory(idx, 'bestseller', e.target.checked)}
+                        sx={{ color: 'rgba(255,255,255,0.4)', '&.Mui-checked': { color: '#E5B769' } }} />}
+                      label={<Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.78rem' }}>Mark as Bestseller</Typography>}
+                    />
+                  </Box>
+                ))}
+                {categoryRowTotal > 26 && (
+                  <Typography sx={{ color: '#E5484D', fontSize: '0.72rem', mb: 1 }}>
+                    Total rows ({categoryRowTotal}) exceed 26 (A–Z). Reduce rows.
+                  </Typography>
+                )}
+              </Box>
+
               <Button fullWidth variant="contained" type="submit"
                 sx={{ mt: 2, background: 'linear-gradient(135deg, #E5B769 0%, #C9922F 100%)', color: '#000', fontWeight: 700 }}>
                 Add Screen

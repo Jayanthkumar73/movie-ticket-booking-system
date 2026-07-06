@@ -15,4 +15,6 @@ public class SeatInfoDTO {
     private List<String> bookedSeats;
     private BigDecimal pricePerSeat;
     private String screenType;
+    // Priced bands for a category screen; empty/null for legacy flat-price screens.
+    private List<SeatCategoryBand> categories;
 }

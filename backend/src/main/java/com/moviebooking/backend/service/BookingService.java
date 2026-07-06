@@ -5,6 +5,7 @@ import com.moviebooking.backend.dto.BookingReportDTO;
 import com.moviebooking.backend.dto.BookingResponse;
 import com.moviebooking.backend.entity.*;
 import com.moviebooking.backend.repository.*;
+import com.moviebooking.backend.util.SeatLayoutUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,7 +78,7 @@ public class BookingService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        BigDecimal totalAmount = show.getPricePerSeat().multiply(BigDecimal.valueOf(requested.size()));
+        BigDecimal totalAmount = computeTotal(show, requested);
 
         Booking booking = new Booking();
         booking.setBookingNumber(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
@@ -91,6 +92,35 @@ public class BookingService {
         Booking saved = bookingRepository.save(booking);
 
         return toResponse(saved);
+    }
+
+    /**
+     * Prices a booking server-side. When the screen has priced categories, each seat is
+     * charged by the category of its row letter; otherwise falls back to the show's flat price.
+     * The client only sends seat labels — never a price — so this is the single source of truth.
+     */
+    private BigDecimal computeTotal(Show show, List<String> seats) {
+        Screen screen = show.getScreen();
+        Map<Character, BigDecimal> rowToPrice = SeatLayoutUtil.rowLetterToPrice(screen);
+
+        // Legacy flat-price screen (no categories defined).
+        if (rowToPrice.isEmpty()) {
+            return show.getPricePerSeat().multiply(BigDecimal.valueOf(seats.size()));
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (String label : seats) {
+            if (label == null || label.trim().isEmpty()) {
+                throw new RuntimeException("Invalid seat selection");
+            }
+            char row = Character.toUpperCase(label.trim().charAt(0));
+            BigDecimal price = rowToPrice.get(row);
+            if (price == null) {
+                throw new RuntimeException("Seat " + label + " is not in any priced section");
+            }
+            total = total.add(price);
+        }
+        return total;
     }
 
     @Transactional
