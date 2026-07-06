@@ -1,5 +1,6 @@
 package com.moviebooking.backend.controller;
 
+import com.moviebooking.backend.dto.ScreenRequest;
 import com.moviebooking.backend.entity.Screen;
 import com.moviebooking.backend.service.ScreenService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,14 +30,14 @@ public class ScreenController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('THEATRE_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<Screen> addScreen(@RequestParam Long theatreId, @RequestBody Screen screen) {
-        return ResponseEntity.ok(screenService.addScreen(theatreId, screen));
+    public ResponseEntity<Screen> addScreen(@RequestParam Long theatreId, @RequestBody ScreenRequest request) {
+        return ResponseEntity.ok(screenService.addScreen(theatreId, request));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('THEATRE_ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<Screen> updateScreen(@PathVariable Long id, @RequestBody Screen screen) {
-        return ResponseEntity.ok(screenService.updateScreen(id, screen));
+    public ResponseEntity<Screen> updateScreen(@PathVariable Long id, @RequestBody ScreenRequest request) {
+        return ResponseEntity.ok(screenService.updateScreen(id, request));
     }
 
     @DeleteMapping("/{id}")

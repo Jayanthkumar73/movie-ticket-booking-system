@@ -6,6 +6,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "screens")
 @Data
@@ -31,4 +34,10 @@ public class Screen {
     // Serialize only what we need; exclude the screens list back to avoid circular JSON
     @JsonIgnoreProperties({"screens", "hibernateLazyInitializer", "handler"})
     private Theatre theatre;
+
+    // Priced seat tiers (e.g. CLASSIC, EXECUTIVE). Empty for legacy flat-price screens.
+    @OneToMany(mappedBy = "screen", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("displayOrder ASC")
+    @JsonIgnoreProperties({"screen", "hibernateLazyInitializer", "handler"})
+    private List<SeatCategory> seatCategories = new ArrayList<>();
 }
