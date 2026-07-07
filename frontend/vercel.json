@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://YOUR_BACKEND_RENDER_URL/api/:path*"
+      "destination": "https://movie-ticket-booking-system-vv3s.onrender.com/api/:path*"
     }
   ]
 }
