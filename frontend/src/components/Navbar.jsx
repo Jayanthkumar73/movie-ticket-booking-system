@@ -1,16 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../redux/authSlice';
 import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
+import axios from 'axios';
 import { NOIR } from '../theme';
 
 const Navbar = () => {
-  const { isAuthenticated, roles } = useSelector((state) => state.auth);
+  const { isAuthenticated, roles, theatreId } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const [theatreName, setTheatreName] = useState('');
+
+  useEffect(() => {
+    if (isAuthenticated && theatreId && roles.includes('ROLE_THEATRE_ADMIN')) {
+      axios.get(`/api/theatres/${theatreId}`)
+        .then(res => {
+          setTheatreName(res.data.theatreName);
+        })
+        .catch(err => {
+          console.error("Error fetching theatre name in navbar:", err);
+        });
+    } else {
+      setTheatreName('');
+    }
+  }, [isAuthenticated, theatreId, roles]);
+
 
   const handleLogout = () => {
     dispatch(logout());
@@ -72,6 +89,24 @@ const Navbar = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {theatreName && (
+            <Typography 
+              variant="subtitle2" 
+              sx={{ 
+                color: NOIR.amber, 
+                fontWeight: 700, 
+                fontSize: '0.8rem', 
+                border: `1px solid ${NOIR.amber}`, 
+                px: 1.5, 
+                py: 0.5, 
+                borderRadius: '20px', 
+                mr: 1,
+                fontFamily: 'Inter, sans-serif'
+              }}
+            >
+              📍 {theatreName}
+            </Typography>
+          )}
           {!isSuperAdmin && <Button component={Link} to="/movies" sx={navLink(isActive('/movies'))}>Movies</Button>}
           {isAuthenticated && !isSuperAdmin && (
             <Button component={Link} to="/bookings" startIcon={<ConfirmationNumberIcon sx={{ fontSize: 18 }} />} sx={navLink(isActive('/bookings'))}>

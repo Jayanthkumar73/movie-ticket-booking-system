@@ -3,16 +3,14 @@ package com.moviebooking.backend.config;
 import com.moviebooking.backend.entity.*;
 import com.moviebooking.backend.repository.*;
 import com.moviebooking.backend.service.CloudinaryService;
+import com.moviebooking.backend.service.ShowSchedulerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 @Component
 public class DatabaseInitializer implements CommandLineRunner {
@@ -27,27 +25,27 @@ public class DatabaseInitializer implements CommandLineRunner {
     private ScreenRepository screenRepository;
 
     @Autowired
-    private ShowRepository showRepository;
-
-    @Autowired
-    private BookingRepository bookingRepository;
-
-    @Autowired
     private CloudinaryService cloudinaryService;
+
+    @Autowired
+    private ShowSchedulerService showSchedulerService;
 
     @Override
     public void run(String... args) throws Exception {
-        // Only seed if the database is completely empty.
-        // This prevents wiping real bookings and data on every restart.
-        if (movieRepository.count() > 0) {
-            System.out.println("Database already has data — skipping seed to preserve existing bookings.");
-            return;
+        if (movieRepository.count() == 0) {
+            // First run — seed all base data
+            System.out.println("Empty database detected — seeding initial data...");
+            initializeTheatresAndScreens();
+            initializeMovies();
+        } else {
+            System.out.println("Database already has data — skipping base seed.");
         }
 
-        System.out.println("Empty database detected — seeding initial data...");
-        initializeTheatresAndScreens();
-        initializeMovies();
-        initializeShows();
+        // Always run the show refresh on every startup:
+        // - Cleans up past shows (with no confirmed bookings)
+        // - Tops up every movie with fresh shows from today → today+4
+        System.out.println("Running show refresh on startup...");
+        showSchedulerService.refreshShows();
     }
 
     private void initializeTheatresAndScreens() {
@@ -157,47 +155,4 @@ public class DatabaseInitializer implements CommandLineRunner {
         System.out.println("Saved " + popularMovies.size() + " movies successfully to local database!");
     }
 
-    private void initializeShows() {
-        System.out.println("Initializing daily shows for the next 7 days...");
-        List<Movie> allMovies = movieRepository.findAll();
-        List<Screen> allScreens = screenRepository.findAll();
-
-        if (allMovies.isEmpty() || allScreens.isEmpty()) {
-            System.out.println("Missing movies or screens. Cannot initialize shows.");
-            return;
-        }
-
-        // Create shows for the first 15 movies across different screens
-        List<LocalTime> showTimes = List.of(
-                LocalTime.of(10, 0), // 10:00 AM
-                LocalTime.of(13, 30), // 01:30 PM
-                LocalTime.of(16, 45), // 04:45 PM
-                LocalTime.of(20, 0), // 08:00 PM
-                LocalTime.of(23, 0) // 11:00 PM
-        );
-
-        int count = 0;
-        Random random = new Random(42);
-
-        // Map shows across the first 15 movies, next 7 days, 2 screens each
-        for (int m = 0; m < Math.min(15, allMovies.size()); m++) {
-            Movie movie = allMovies.get(m);
-
-            for (int day = 0; day < 7; day++) {
-                LocalDate date = LocalDate.now().plusDays(day);
-
-                // Distribute across screens
-                for (int s = 0; s < 3; s++) {
-                    Screen screen = allScreens.get((m + s) % allScreens.size());
-                    LocalTime time = showTimes.get((m + day + s) % showTimes.size());
-                    BigDecimal price = BigDecimal.valueOf(150 + random.nextInt(250)); // Price between 150 and 400
-
-                    Show show = new Show(null, date, time, price, ShowStatus.ACTIVE, movie, screen);
-                    showRepository.save(show);
-                    count++;
-                }
-            }
-        }
-        System.out.println("Generated " + count + " active shows successfully!");
-    }
 }

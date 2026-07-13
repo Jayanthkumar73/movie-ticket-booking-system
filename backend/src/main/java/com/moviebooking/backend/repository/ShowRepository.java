@@ -12,4 +12,6 @@ public interface ShowRepository extends JpaRepository<Show, Long> {
     List<Show> findByStatus(ShowStatus status);
     List<Show> findByScreenId(Long screenId);
     List<Show> findByShowDateBetween(LocalDate from, LocalDate to);
+    List<Show> findByShowDateBefore(LocalDate date);
+    List<Show> findByMovieIdAndShowDateBetween(Long movieId, LocalDate from, LocalDate to);
 }
